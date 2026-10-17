@@ -65,6 +65,33 @@ contract KayitTest is Test {
         assertTrue(goruldu, "Registered olayi yok");
     }
 
+    function test_MuhurMetaVerisi() public {
+        uint256 agentId = vm.envOr("PROOF1_AGENT_ID", uint256(0));
+        address muhur = vm.envOr("PROOF1_SEAL_ADDRESS", address(0));
+        if (agentId == 0 || muhur == address(0)) {
+            vm.skip(true);
+        }
+        assertEq(KIMLIK.getMetadata(agentId, "proof1.seal"), abi.encode(muhur));
+    }
+
+    function test_ZincirdekiKayitDosyasiGuncel() public {
+        uint256 agentId = vm.envOr("PROOF1_AGENT_ID", uint256(0));
+        if (agentId == 0) {
+            vm.skip(true);
+        }
+        assertEq(KIMLIK.tokenURI(agentId), kaydol.agentURI(), "zincirdeki kayit dosyasi kayit/ ile ayni olmali");
+    }
+
+    function test_KayitDosyasiMuhuruGosteriyor() public view {
+        string memory json = kaydol.kayitJson();
+        assertEq(vm.parseJsonString(json, ".services[0].name"), "seal");
+        assertEq(
+            vm.parseJsonString(json, ".services[0].endpoint"),
+            string.concat("eip155:43113:", vm.toString(vm.envAddress("PROOF1_SEAL_ADDRESS")))
+        );
+        assertEq(vm.parseJsonUint(json, ".registrations[0].agentId"), vm.envUint("PROOF1_AGENT_ID"));
+    }
+
     function test_GercekKayit() public {
         uint256 agentId = vm.envOr("PROOF1_AGENT_ID", uint256(0));
         if (agentId == 0) {
