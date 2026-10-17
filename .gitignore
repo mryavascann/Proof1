@@ -30,7 +30,8 @@ venv/
 node_modules/
 .pytest_cache/
 
-# Editör / işletim sistemi
+# Editör / işletim sistemi / Claude uygulaması
+.claude/
 .vscode/
 .idea/
 .DS_Store
