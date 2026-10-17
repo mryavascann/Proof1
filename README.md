@@ -152,7 +152,8 @@ proof1, Avalanche Fuji'de (chainId 43113) resmi ERC-8004 Identity sözleşmesine
 | proof1 test cüzdanı (NFT sahibi) | `0x09a292458F780a28622062DaC6560Fa6b87B3ed6` | [snowtrace](https://testnet.snowtrace.io/address/0x09a292458F780a28622062DaC6560Fa6b87B3ed6) |
 | Mühür sözleşmesi `Proof1Muhur` | `0x7C5aB869e8d972885673f19B848084279AAD0d48` | [snowtrace](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · [deploy](https://testnet.snowtrace.io/tx/0x6382f45f82190887171fdfd230f49ea2088d63e857df4a59c2964ee995bb9a09) |
 | Kimliğe bağlama | `setMetadata(263, "proof1.seal", …)` | [işlem](https://testnet.snowtrace.io/tx/0x2ef71ece22162c054f4ea64fca9eff9a71b4d793a9214d63ac1d69f672d2999f) |
-| İlk mühür (**örnek veri**, 11 Ekim 2026) | 13 satırın kökü | [işlem](https://testnet.snowtrace.io/tx/0x0613b3a427fbf1dce91c79a2cc994b17f760eeb30951f72ee437827895b76ea1) |
+| Deneme mührü (**örnek veri**; gün etiketi 11 Ekim, işlem 17 Ekim'de gönderildi) | 13 satırın kökü | [işlem](https://testnet.snowtrace.io/tx/0x0613b3a427fbf1dce91c79a2cc994b17f760eeb30951f72ee437827895b76ea1) |
+| 16 Ekim 2026 mührü (**gerçek defter**, bot uyuşmazlığının günü) | 16 satırın kökü, zincirde doğrulandı | [işlem](https://testnet.snowtrace.io/tx/0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34) |
 
 Mühür sözleşmesine yalnız ERC-8004 kimliğinin sahibi yazar: her gün bir kez, üzerine yazılamaz, geriye tarih yok. Kök: günün her hareket satırı için yaprak = sha256(tuz ‖ kanonik satır) (tuzlar yalnız yerelde), yapraklardan Merkle kökü, sonra sha256(merkle ‖ önceki mühür kökü); bir satır öbürleri açılmadan kanıtlanabilir. Mühür, defterin o gün var olduğunu ve sonradan değişmediğini kanıtlar; doğru olduğunu kanıtlamaz. Zincire adres ya da tutar yazılmaz, yalnız kök.
 

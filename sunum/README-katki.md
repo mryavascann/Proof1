@@ -73,7 +73,8 @@ Kayıt dosyası (`muhur/kayit/kayit.json`) ve görsel (Komiser Kuş, `muhur/kayi
 | Mühür sözleşmesi `Proof1Muhur` | [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) |
 | Deploy işlemi | [`0x6382…9a09`](https://testnet.snowtrace.io/tx/0x6382f45f82190887171fdfd230f49ea2088d63e857df4a59c2964ee995bb9a09) |
 | Kimliğe bağlama | `setMetadata(263, "proof1.seal", …)` [`0x2ef7…999f`](https://testnet.snowtrace.io/tx/0x2ef71ece22162c054f4ea64fca9eff9a71b4d793a9214d63ac1d69f672d2999f) · kayıt dosyasında `services` ve `registrations` [`0xbd28…fb12`](https://testnet.snowtrace.io/tx/0xbd2841c8e77716bb650f0937300988c3253556e8e667a90d4851d029974cfb12) |
-| İlk mühür (**örnek veri**, 11 Ekim 2026, o günkü örnek defterin 13 satırı) | kök `0xd68d…a74c` · [`0x0613…6ea1`](https://testnet.snowtrace.io/tx/0x0613b3a427fbf1dce91c79a2cc994b17f760eeb30951f72ee437827895b76ea1) · zincirde `rootOf` ile doğrulandı |
+| Deneme mührü (**örnek veri**; gün etiketi 11 Ekim, işlem 17 Ekim'de gönderildi; örnek defterin 13 satırı) | kök `0xd68d…a74c` · [`0x0613…6ea1`](https://testnet.snowtrace.io/tx/0x0613b3a427fbf1dce91c79a2cc994b17f760eeb30951f72ee437827895b76ea1) · zincirde `rootOf` ile doğrulandı |
+| 16 Ekim 2026 mührü (**gerçek defter**, 16 satır) | kök `0x2f3a…8f22` · [`0x5135…ef34`](https://testnet.snowtrace.io/tx/0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34) · panodaki “Zincirde doğrula” ile doğrulandı |
 
 Sözleşme: yalnız ERC-8004 kimliğin sahibi yazar; her gün bir kez, üzerine yazılamaz, geriye tarih yok. Zincire yalnız kök gider; adres ya da tutar gitmez. Mühür, defterin o gün var olduğunu ve sonradan değişmediğini kanıtlar; içeriğin doğruluğunu kanıtlamaz.
 

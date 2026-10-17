@@ -341,7 +341,7 @@ def rapor(db: sqlite3.Connection, oturum: str, gizli: bool = True) -> dict:
             sonuc["kalan"] = {"metin": f"{k.alanlar.get('adres_sayisi')} adreste yaklaşık {k.alanlar.get('dolar')} "
                                        f"duruyor.",
                               "not": "Güncel bakiye seviyesi; tarihsel akıştan ayrı zaman damgasıyla okunur.",
-                              "olgular": [k.no]}
+                              "dolar": k.alanlar.get("dolar"), "olgular": [k.no]}
     return sonuc
 
 

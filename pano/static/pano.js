@@ -58,6 +58,25 @@
     return iso && !isNaN(d) ? d.toLocaleString("tr-TR", { timeZone: "Europe/Istanbul", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
   }
   function kisaKimlik(k) { k = String(k || ""); return !k ? "—" : k.length > 14 ? k.slice(0, 8) + "…" + k.slice(-4) : k; }
+  // Para girişi (+) altın, hesaptan çıkış (−) mavi. Sayı değişmez; yalnız işaretine göre renk sınıfı.
+  function isaretli(e, metin) {
+    var m = String(metin == null ? e.textContent : metin).trim();
+    if (/^[−-]\s*\d/.test(m)) e.classList.add("eksi");
+    else if (/^\+?\s*\d/.test(m) && !/^0([,.]0+)?(\s|$)/.test(m)) e.classList.add("arti");
+    return e;
+  }
+  function borsaBakiyesi() {                // bugün 09.00 borsa seviyesi; gizli modda sunucu rapora hiç koymaz
+    var k = durum.rapor && durum.rapor.kopru, kap = k && k.kapsamlar.borsa;
+    var b = kap && kap.kalemler.filter(function (x) { return x.kalem === "bitis"; })[0];
+    return b && b.dolar ? kurus(b.dolar) : null;
+  }
+  // "11.499,8898 $" → "11.499,89 $": yalnız gösterim yuvarlaması; tutarı kod hesaplar
+  function kurus(m) {
+    var x = /^([+\-−]?[\d.]+),(\d{3,})(.*)$/.exec(String(m));
+    if (!x) return m;
+    var n = parseFloat(x[1].replace(/\./g, "").replace("−", "-") + "." + x[2]);
+    return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + x[3];
+  }
   function eksi(m) { return String(m == null ? "" : m).replace(/^-/, "−"); }
   function cumleEtiketi(c) { return c.denetim === "gecti" ? "sayılar olgularla doğrulandı" : "doğrulanmış kalıp cümle"; }
   function f(x) { return Math.round(x * 10) / 10; }
@@ -140,7 +159,7 @@
     kutu.innerHTML = "";
     if (!n) { kutu.appendChild(el("p", { sinif: "not", metin: "Bu dönemde çekim akışı yok." })); durum.geo = null; Akis.kur(null); return; }
     var W = dar ? 640 : 1000, nw = dar ? 9 : 10;
-    var xL = dar ? 18 : 236, xM = dar ? 262 : 520, xR = dar ? 430 : 770, ust = dar ? 150 : 64, aralik = dar ? 18 : 22;
+    var xL = dar ? 18 : 236, xM = dar ? 262 : 520, xR = dar ? 430 : 770, ust = dar ? 186 : 64, aralik = dar ? 18 : 22;
     var toplam = gruplar.reduce(function (s, g) { return s + g.deger; }, 0) || 1;
     var Hb = Math.max(dar ? 320 : 300, n * (dar ? 70 : 62));
     var k = (Hb - aralik * (n - 1)) / toplam, y = ust;
@@ -168,6 +187,8 @@
     s += "<defs>" +
       '<linearGradient id="g-akis" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#f6b445"/><stop offset="1" stop-color="#ffd98e"/></linearGradient>' +
       '<linearGradient id="g-kenar" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#f6b445" stop-opacity=".95"/><stop offset="1" stop-color="#ffd98e" stop-opacity=".35"/></linearGradient>' +
+      '<linearGradient id="g-cikis" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#7cb8ff"/><stop offset="1" stop-color="#b3d4ff"/></linearGradient>' +
+      '<linearGradient id="g-cikis-kenar" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#7cb8ff" stop-opacity=".95"/><stop offset="1" stop-color="#b3d4ff" stop-opacity=".4"/></linearGradient>' +
       '<filter id="parilti" x="-300%" y="-20%" width="700%" height="140%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
       '<filter id="parilti-k" x="-300%" y="-300%" width="700%" height="700%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
       '<clipPath id="perde" clipPathUnits="userSpaceOnUse"><rect id="perde-rect" x="0" y="-20" width="' + W + '" height="' + f(H + 40) + '"/></clipPath>' +
@@ -177,26 +198,30 @@
       var aria = x.tur === "kaynak" ? kay.ad + " → Sen: " + (kay.tutar || "") + ", " + kay.cekim_sayisi + " çekim"
         : "Sen → " + x.g.ad + ": " + (x.g.tutar || (x.g.alt || []).map(function (z) { return z.ad + " " + z.tutar; }).join(", ")) +
           (x.g.cekim_sayisi ? ", " + x.g.cekim_sayisi + " çekim" : "");
-      s += '<g class="bant" tabindex="' + (i === 0 ? 0 : -1) + '" role="button" data-i="' + i + '" aria-label="' + esc(aria) + '">' +
+      s += '<g class="bant' + (i === 0 ? " kaynak" : "") + '" tabindex="' + (i === 0 ? 0 : -1) + '" role="button" data-i="' + i + '" aria-label="' + esc(aria) + '">' +
         '<path class="b" d="' + bantYolu(x.b) + '"/><path class="kenar" d="' + kenarYolu(x.b) + '"/>' +
         '<path d="' + bantYolu(x.b) + '" fill="none" stroke="transparent" stroke-width="12" pointer-events="stroke"/></g>';
     });
     s += "</g>";
     // düğümler
-    s += '<rect class="dugum" x="' + xL + '" y="' + f(mTop) + '" width="' + nw + '" height="' + f(akisT) + '" rx="' + nw / 2 + '"/>';
+    s += '<rect class="dugum kaynak" x="' + xL + '" y="' + f(mTop) + '" width="' + nw + '" height="' + f(akisT) + '" rx="' + nw / 2 + '"/>';
     s += '<rect class="dugum sen" x="' + xM + '" y="' + f(mTop) + '" width="' + nw + '" height="' + f(akisT) + '" rx="' + nw / 2 + '"/>';
     sag.forEach(function (o) {
       s += '<rect class="dugum" x="' + xR + '" y="' + f(o.y0) + '" width="' + nw + '" height="' + f(o.t) + '" rx="' + f(Math.min(nw / 2, o.t / 2)) + '"/>';
     });
     // kaynak etiketi (dar ekranda düğümün üstünde)
-    var sx = dar ? xL : xL - 22, anc = dar ? "start" : "end", ky = dar ? mTop - 96 : mTop + akisT / 2 - 24;
+    var sx = dar ? xL : xL - 22, anc = dar ? "start" : "end", ky = dar ? mTop - 132 : mTop + akisT / 2 - 24;
     s += '<g class="etiket sol"><text x="' + sx + '" y="' + f(ky) + '" text-anchor="' + anc + '" class="ad">' + esc(kay.ad) + "</text>" +
       '<text x="' + sx + '" y="' + f(ky + 46) + '" text-anchor="' + anc + '" class="tutar buyuk" data-sayi="' + esc(kay.tutar || "") + '">' + esc(kay.tutar || "") + "</text>" +
       '<text x="' + sx + '" y="' + f(ky + 72) + '" text-anchor="' + anc + '" class="kucuk" data-sayi="' + esc(kay.cekim_sayisi + " çekim") + '">' + esc(kay.cekim_sayisi + " çekim") + "</text></g>";
+    var bakiye = borsaBakiyesi();
+    s += '<g class="bakiye' + (bakiye ? "" : " gizli") + '" role="button" tabindex="0" aria-label="' + esc(bakiye ? "OKX TR bakiyesi " + bakiye + "; gizlemek için dokun" : "OKX TR bakiyesi gizli; göstermek için dokun") + '">' +
+      '<text x="' + sx + '" y="' + f(ky + 102) + '" text-anchor="' + anc + '">' + esc(bakiye ? "Bakiye " + bakiye : "Bakiye gizli") + "</text></g>";
     // Sen
     s += '<g class="etiket orta"><text x="' + (xM + nw / 2) + '" y="' + f(mTop - 36) + '" text-anchor="middle" class="sen-ad">Sen</text>' +
       '<text x="' + (xM + nw / 2) + '" y="' + f(mTop - 14) + '" text-anchor="middle" class="kucuk" data-sayi="' + esc(kay.adres_sayisi + " adres") + '">' +
-      esc(kay.adres_sayisi + " adres") + "</text></g>";
+      esc(kay.adres_sayisi + " adres") + "</text>" +
+      (r.kalan && r.kalan.dolar ? '<text x="' + (xM + nw / 2) + '" y="' + f(mTop + akisT + 26) + '" text-anchor="middle" class="kucuk">' + esc("cüzdanlarda ≈ " + r.kalan.dolar) + "</text>" : "") + "</g>";
     // ağlar
     sag.forEach(function (o, i) {
       var ly = etiketY[i], lx = xR + nw + 16, orta = (o.y0 + o.y1) / 2, g = o.g;
@@ -220,13 +245,18 @@
         '<text x="' + (dar ? mx + 16 : mx - 16) + '" y="' + f(iy + 5) + '" text-anchor="' + (dar ? "start" : "end") + '">' + esc(acil[0].baslik + sayi) + "</text></g>";
     }
     kutu.innerHTML = '<svg viewBox="0 0 ' + W + " " + f(H) + '" class="' + (dar ? "dar" : "") + '" role="presentation">' + s + "</svg>";
+    var bk = kutu.querySelector(".bakiye");
+    if (bk) {
+      bk.addEventListener("click", function () { $("gizli").click(); });
+      bk.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("gizli").click(); } });
+    }
     bagla();
     Akis.kur(durum.geo);
   }
 
   function okumaMetni(i) {
     var x = durum.bantlar[i], kay = durum.rapor.akis.kaynak;
-    if (x.tur === "kaynak") return "<b>" + esc(kay.tutar || "") + "</b><span>" + esc(kay.ad) + " → Sen · " + esc(kay.cekim_sayisi) + " çekim</span>";
+    if (x.tur === "kaynak") return "<b class=\"cikis\">" + esc(kay.tutar || "") + "</b><span>" + esc(kay.ad) + " → Sen · " + esc(kay.cekim_sayisi) + " çekim</span>";
     var g = x.g;
     if (g.tutar) return "<b>" + esc(g.tutar) + "</b><span>Sen → " + esc(g.ad) + " · " + esc(g.cekim_sayisi) + " çekim</span>";
     return "<b>" + esc(g.ad) + "</b><span>" + esc((g.alt || []).map(function (z) { return z.ad + " " + z.tutar; }).join(" · ")) + "</span>";
@@ -293,14 +323,16 @@
   var Akis = (function () {
     var cv = $("parcacik"), ctx = cv.getContext("2d"), geo = null, parcalar = [], olcek = 1, dpr = 1;
     var calisiyor = false, onceki = 0, yog = 0, hedefYog = 0, vurgu = null, HIZ = 118;
-    var tane = (function () {
+    function taneCiz(ic, orta, dis) {
       var c = document.createElement("canvas"); c.width = c.height = 48;
       var g = c.getContext("2d"), r = g.createRadialGradient(24, 24, 0, 24, 24, 24);
-      r.addColorStop(0, "rgba(255,244,214,1)"); r.addColorStop(0.16, "rgba(255,216,142,.95)");
-      r.addColorStop(0.42, "rgba(246,180,69,.32)"); r.addColorStop(1, "rgba(246,180,69,0)");
+      r.addColorStop(0, ic); r.addColorStop(0.16, orta);
+      r.addColorStop(0.42, dis + ".32)"); r.addColorStop(1, dis + "0)");
       g.fillStyle = r; g.fillRect(0, 0, 48, 48);
       return c;
-    })();
+    }
+    var tane = taneCiz("rgba(255,244,214,1)", "rgba(255,216,142,.95)", "rgba(246,180,69,");        // giriş: altın
+    var taneCikis = taneCiz("rgba(232,243,255,1)", "rgba(179,212,255,.95)", "rgba(124,184,255,");  // hesaptan çıkış: mavi
     function bz(p0, p1, p2, p3, t) { var u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; }
     function nokta(b, t, s) {
       var xm = (b.x1 + b.x2) / 2, ya = b.a0 + s * (b.a1 - b.a0), yb = b.b0 + s * (b.b1 - b.b0);
@@ -370,7 +402,7 @@
           if (tt < 0) break;
           var xy = nokta(b, tt, s), boy = p.r * (p.parla ? 4.4 : 3.2) * (1 - k * 0.2);
           ctx.globalAlpha = Math.max(0, a * (k === 0 ? 0.95 : 0.3 * (1 - k * 0.25)));
-          ctx.drawImage(tane, xy[0] - boy, xy[1] - boy, boy * 2, boy * 2);
+          ctx.drawImage(p.asama === 0 ? taneCikis : tane, xy[0] - boy, xy[1] - boy, boy * 2, boy * 2);
         }
       }
       ctx.globalAlpha = 1;
@@ -415,6 +447,8 @@
       y: function (i, e) { return e.classList.contains("orta") ? 10 : 0; }
     }, 0.55);
     Array.prototype.forEach.call(svg.querySelectorAll("[data-sayi]"), function (t) { sayac(t, tl, 0.6); });
+    tl.from(svg.querySelectorAll(".bakiye"), { autoAlpha: 0, x: -16, duration: 1, clearProps: "all" }, 0.8);
+    tl.from(".lejant", { autoAlpha: 0, y: 8, duration: 0.8, clearProps: "all" }, 1.05);
     tl.add(function () { Akis.yogunluk(1); }, 0.7);
     tl.from(svg.querySelectorAll(".isaret"), { autoAlpha: 0, scale: 0.3, transformOrigin: "50% 50%", duration: 0.9, ease: "back.out(2.2)", clearProps: "all" }, 1.45);
     tl.from("#kartlar > *", { autoAlpha: 0, y: 28, duration: 1, stagger: 0.09, clearProps: "all" }, 1.15);   // :hover yükselmesi çalışsın
@@ -498,7 +532,7 @@
     if (x.tur === "kaynak") {
       var kay = r.akis.kaynak;
       $("panel-baslik").textContent = kay.ad + " → Sen";
-      ic.appendChild(el("p", { sinif: "buyuk-sayi", metin: kay.tutar || "—" }));
+      ic.appendChild(el("p", { sinif: "buyuk-sayi cikis", metin: kay.tutar || "—" }));
       ic.appendChild(el("p", { sinif: "meta", metin: kay.cekim_sayisi + " çekim · " + kay.adres_sayisi + " adres" }));
       ic.appendChild(el("p", { sinif: "not", metin: r.akis.not }));
       ic.appendChild(el("h3", { metin: "Ne oldu" }));
@@ -581,7 +615,7 @@
       r.appendChild(el("a", { href: mu.gun_muhru.gezgin, target: "_blank", rel: "noopener noreferrer", metin: gunTr(mu.gun) + " Avalanche'ta mühürlü" }));
     } else if (mu && mu.son && mu.son.length) {
       r.appendChild(ikon("muhur"));
-      r.appendChild(document.createTextNode("Son mühür " + gunTr(mu.son[0].gun)));
+      r.appendChild(el("a", { href: mu.son[0].gezgin, target: "_blank", rel: "noopener noreferrer", metin: "Son mühür " + gunTr(mu.son[0].gun) + " · Avalanche" }));
     }
     r.hidden = !r.childNodes.length;
   }
@@ -626,13 +660,13 @@
     var kap = k.kapsamlar[durum.kopruKapsam], satirlar = el("div", { sinif: "satirlar", style: "margin-top:10px" });
     kap.ozet.forEach(function (o) {
       satirlar.appendChild(el("div", { sinif: "satir" }, [el("span", null, [o.ad, el("small", { metin: o.varliklar.join(" · ") || "değişim yok" })]),
-        el("span", { sinif: "sag", metin: o.dolar || "fiyat yok" })]));
+        isaretli(el("span", { sinif: "sag", metin: o.dolar || "fiyat yok" }))]));
     });
     kutu.appendChild(satirlar);
     var liste = el("div", { sinif: "satirlar", hidden: "" }), d = el("button", { type: "button", sinif: "baglanti", metin: "Tüm kalemler (" + kap.kalemler.length + ")" });
     kap.kalemler.forEach(function (x) {
       liste.appendChild(el("div", { sinif: "satir" }, [el("span", null, [x.ad, el("small", { metin: x.aciklama })]),
-        el("span", { sinif: "sag" }, [x.varliklar.join(" · ") || "0", el("small", { metin: x.dolar || "fiyat yok" })])]));
+        isaretli(el("span", { sinif: "sag" }, [x.varliklar.join(" · ") || "0", el("small", { metin: x.dolar || "fiyat yok" })]), x.dolar)]));
     });
     d.addEventListener("click", function () {
       liste.hidden = !liste.hidden;
@@ -760,7 +794,7 @@
       if (s.supheli) ne.appendChild(el("span", { sinif: "rozet-k hata", metin: "şüpheli" }));
       if (s.durum !== "ok") ne.appendChild(el("span", { sinif: "rozet-k", metin: s.durum }));
       return el("tr", { sinif: s.supheli ? "supheli" : "" }, [el("td", { sinif: "tek-satir", metin: saatTr(s.zaman) }), ne,
-        el("td", { sinif: "hucre-sag", metin: s.miktar || "" }), el("td", { sinif: "hucre-sag", metin: s.dolar || "fiyat yok" }),
+        isaretli(el("td", { sinif: "hucre-sag", metin: s.miktar || "" })), isaretli(el("td", { sinif: "hucre-sag", metin: s.dolar || "fiyat yok" })),
         el("td", { metin: (s.ag || s.kaynak) + " · " + s.hesap }), el("td", { sinif: "mono tek-satir", metin: kisaKimlik(s.islem) })]);
     })));
     k.appendChild(el("h2", { metin: "Doğrulanmış cümleler" }));
@@ -807,22 +841,23 @@
     if (mu.sozlesme) satir("Sözleşme", mu.sozlesme.slice(0, 6) + "…" + mu.sozlesme.slice(-4), mu.sozlesme_gezgin);
     satir("Gün", gunTr(mu.gun));
     var dogru = el("p", { sinif: "not" });
-    if (mu.gun_muhru) {
-      satir("Kök", mu.gun_muhru.kok.slice(0, 10) + "…" + mu.gun_muhru.kok.slice(-6));
-      satir("İşlem", mu.gun_muhru.islem.slice(0, 10) + "…", mu.gun_muhru.gezgin);
-    } else {
-      dogru.textContent = "Bu gün henüz mühürlenmedi." + (mu.son && mu.son.length ? " Son mühür: " + gunTr(mu.son[0].gun) + "." : "");
+    var gosterilen = mu.gun_muhru || (mu.son && mu.son[0]) || null, hedefGun = gosterilen ? gosterilen.gun : mu.gun;
+    if (!mu.gun_muhru) dogru.textContent = "Bu gün henüz mühürlenmedi." + (gosterilen ? " Son mühür yukarıda." : "");
+    if (gosterilen) {
+      if (!mu.gun_muhru) satir("Son mühür", gunTr(gosterilen.gun));
+      satir("Kök", gosterilen.kok.slice(0, 10) + "…" + gosterilen.kok.slice(-6));
+      satir("İşlem", gosterilen.islem.slice(0, 10) + "…", gosterilen.gezgin);
     }
     b2.appendChild(dl);
     b2.appendChild(dogru);
-    if (mu.gun_muhru) {
+    if (gosterilen) {
       var dg = el("button", { type: "button", sinif: "baglanti", metin: "Zincirde doğrula" });
       var METIN = { dogrulandi: "Doğrulandı: zincirdeki kök yerel kayıtla aynı.", uyusmuyor: "Uyuşmuyor: zincirdeki kök farklı.",
         zincirde_yok: "Zincirde bu gün için kök yok.", baglanilamadi: "Zincire bağlanılamadı.",
         yerel_kayit_yok: "Yerel mühür kaydı yok.", ayar_yok: "Mühür ayarları eksik." };
       dg.addEventListener("click", function () {
         dogru.textContent = "Zincire soruluyor…";
-        api("/api/muhur-dogrula", { gun: mu.gun }).then(function (d) { dogru.textContent = METIN[d.durum] || d.durum; duyur(dogru.textContent); })
+        api("/api/muhur-dogrula", { gun: hedefGun }).then(function (d) { dogru.textContent = METIN[d.durum] || d.durum; duyur(dogru.textContent); })
           .catch(function () { dogru.textContent = METIN.baglanilamadi; });
       });
       b2.appendChild(dg);
