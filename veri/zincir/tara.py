@@ -50,9 +50,10 @@ def _benimler(db) -> set[str]:
 def tara(db, okuyucu, cekimler, yatirmalar, borsa_adresleri: set | None = None) -> TaramaSonucu:
     _tablo(db)
     sonuc = TaramaSonucu()
-    adresler = db.execute("SELECT id, adres, etiket, tahmin FROM adres WHERE cekim_sayisi > 0 ORDER BY id").fetchall()
-    tum = {r[0].lower(): r[1] for r in db.execute("SELECT adres, etiket FROM adres")}
     benim = _benimler(db)
+    adresler = [r for r in db.execute("SELECT id, adres, etiket, tahmin, cekim_sayisi FROM adres ORDER BY id").fetchall()
+                if r["cekim_sayisi"] > 0 or r["adres"].lower() in benim]       # çekim adresleri + “benim” denenler
+    tum = {r[0].lower(): r[1] for r in db.execute("SELECT adres, etiket FROM adres")}
     baglam = Baglam(benim=benim, cekim_tx={c.tx.lower() for c in cekimler if c.tx},
                     yatirma_tx={y.tx.lower() for y in yatirmalar if y.tx},
                     borsa_adresleri=borsa_adresleri or set(), bilinen=set(tum))
