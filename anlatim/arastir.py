@@ -81,13 +81,10 @@ class CanliAraclar:
 
 # ---------- gözlemler (sayılar koddan) ----------
 def _satirlar(veri) -> list[dict]:
-    if isinstance(veri, list):
-        return veri
-    if isinstance(veri, dict):
-        for k in ("data", "result", "items"):
-            if isinstance(veri.get(k), list):
-                return veri[k]
-    return []
+    """ATK cevabındaki satırlar. Gerçek cevap iç içe: {"tool", "ok", "data": {"endpoint", "data": [satırlar]}};
+    kayıtlı yanıtlar düz liste ya da {"data": [...]} olabilir. Hepsini Buğra'nın ATK yardımcısı çözer."""
+    from veri.atk import satirlar
+    return satirlar(veri)
 
 
 def _tr(d: Decimal, isaret: bool = False) -> str:
@@ -342,6 +339,8 @@ def arastir(db_yolu, oturum: str, araclar, istemci=None, kullanici: str = "bugra
 
 
 def ana(argv=None) -> int:
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     ayr = argparse.ArgumentParser(description="proof1 araştıran anlatıcı")
     ayr.add_argument("--oturum", required=True)
     kip = ayr.add_mutually_exclusive_group(required=True)

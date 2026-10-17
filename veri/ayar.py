@@ -9,6 +9,16 @@ KOK = Path(__file__).resolve().parents[1]
 _yuklendi = False
 
 
+def konsol_utf8() -> None:
+    """Windows'ta çıktı cp1254'e düşebilir ve '→' gibi karakterler süreci çökertir: komut satırı araçları UTF-8 yazar."""
+    import sys
+    for akis in (sys.stdout, sys.stderr):
+        try:
+            akis.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def env_yukle(yol: Path | None = None) -> None:
     """Kök .env dosyasını süreç ortamına alır (zaten dolu olanı ezmez)."""
     global _yuklendi

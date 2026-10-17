@@ -225,6 +225,8 @@ def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = N
 
 
 def main():
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     p = argparse.ArgumentParser(description="proof1 sabah işi")
     p.add_argument("--gun")
     p.add_argument("--gonderme", action="store_true")

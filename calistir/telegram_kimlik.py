@@ -34,6 +34,8 @@ def _yaz(chat_id: str):
 
 
 def main():
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     t = Telegram(chat_id="")
     if not t.token:
         print("TELEGRAM_BOT_TOKEN eksik (.env).")

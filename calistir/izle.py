@@ -15,7 +15,7 @@ from veri.defter import _h, ayristir
 from veri.kayit import iso
 
 DONUS_BEKLE_SN = 60            # dönen satırlar genelde birkaç saniyede gelir; gelmezse en çok 60 sn yeniden okunur
-ANLATICI_SN = 2.0              # canlı anda anlatıcıya verilen süre (sonra kalıp cümle)
+ANLATICI_SN = 4.5              # canlı anda anlatıcıya (Sonnet 5.5, ~2,7 sn) verilen süre; sonra kalıp cümle
 
 
 def donus_hareketleri(ham: list[dict], bot: dict) -> list[dict]:
@@ -136,6 +136,8 @@ class Izleyici:
 
 
 def main():
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     from veri import ayar, db as dbm
     from veri.atk import Atk
     from calistir.telegram import Telegram

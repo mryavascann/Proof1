@@ -123,6 +123,15 @@ class Cumleler(unittest.TestCase):
         self.assertNotIn("yeni bir şey görmedi", self._cumle("bot_tutuyor", {"bot": "X", "kayit_sozle": "a", "gercek_sozle": "a"}))
 
 
+class SureButcesi(unittest.TestCase):
+    def test_sonnet_cumlesine_yetisir_ve_15_sn_altinda(self):
+        from anlatim import anlat
+        from calistir import izle
+        self.assertGreaterEqual(izle.ANLATICI_SN, anlat.TELEGRAM_ZAMAN_ASIMI)   # Sonnet'in cümlesi bekleniyor
+        # en kötü durum: bir tur önce durmuş (3 sn) + dönen satırlar (~2 sn) + anlatıcı + Telegram (~1 sn)
+        self.assertLessEqual(3 + 2 + izle.ANLATICI_SN + 1, 15)
+
+
 class TelegramCiftGonderimYok(unittest.TestCase):
     def test_zaman_asiminda_duz_metne_gecilmez(self):
         class ZamanAsimiHttp:

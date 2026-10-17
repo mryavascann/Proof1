@@ -170,6 +170,8 @@ def _env_yukle() -> None:
 
 
 def ana(argv=None) -> int:
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     ayr = argparse.ArgumentParser(description="proof1 günlük defter mührü")
     ayr.add_argument("--gun", required=True, help="YYYY-MM-DD (Europe/Istanbul)")
     ayr.add_argument("--gonder", action="store_true", help="Fuji'ye yaz")

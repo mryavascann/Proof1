@@ -38,8 +38,8 @@ Panoda `?kayit=1` ekranda kalıcı **KAYIT** şeridi gösterir (yedek ekran kayd
 
 - Model sayı üretmez. Kod modele numaralı olgular verir; model her cümlede dayandığı olguları söyler.
 - `anlatim/denetim.py` cümledeki her sayıyı, atıf yapılan yetkili olgularda **aynı değer, birim ve işaretle** arar; tarih ve saat bütün olarak, "verip/aldın" rolleri doğru alana bağlanır. Gizli değer, başka görevin olgusu ya da kendi hesapladığı yüzde reddedilir; o zaman olgu alanlarını harfiyen kopyalayan kalıp cümle yazılır. Reddedilen ham cümle saklanmaz.
-- Telegram cümlesi önce ve tek olguyla istenir (bot uyuşmazlığı varsa yalnız o), Haiku ile, 3 sn zaman aşımı (canlı denemede 1,8 sn); sonra pano başlığı (Sonnet), sonra bant cümleleri onar onar (Haiku; tek çağrıda çıktı tavanına çarpıp kesiliyordu).
-- Model: pano başlığı `claude-sonnet-5-5`, Telegram ve bantlar `claude-haiku-5-5`; harcama tavanın %80'ine gelince her şey Haiku; 35 TL tavanda kalıp. Her çağrı `butce` tablosuna. Örnek veride bir sabah çalıştırması ~0,34 TL.
+- Telegram cümlesi önce ve tek olguyla istenir (bot uyuşmazlığı varsa yalnız o), Sonnet 5.5 ile, 4 sn zaman aşımı (canlı provada 2,7 sn); sonra pano başlığı, sonra bant cümleleri onar onar (tek çağrıda çıktı tavanına çarpıp kesiliyordu). Modele en çok 20 bant gider (önce bot, ağ bantları, takas/stake); kalanlar doğrulanmış kalıpla yazılır.
+- Model: her aşama `claude-sonnet-5-5` (Buğra'nın kararı); harcama tavanın %80'ine gelince Haiku (`claude-haiku-5-5`), 35 TL tavanda kalıp. Her çağrı `butce` tablosuna.
 - Kalıba düşme nedeni `data/anlatici_gunluk.jsonl` dosyasına yazılır (ham cümle yazılmaz).
 
 ## Araştırma izi (Agentic Design)

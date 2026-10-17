@@ -190,7 +190,9 @@
   }
 
   function bagla() {
-    var svg = $("sema").querySelector("svg"), gs = Array.prototype.slice.call(svg.querySelectorAll(".bant"));
+    var svg = $("sema").querySelector("svg");
+    if (!svg) return;
+    var gs = Array.prototype.slice.call(svg.querySelectorAll(".bant"));
     function goster(i) {
       svg.classList.add("vurgu");
       gs.forEach(function (g, j) { g.classList.toggle("secili", j === i); });
@@ -202,21 +204,26 @@
       gs.forEach(function (g) { g.classList.remove("secili"); });
       $("okuma").textContent = "Bantların üzerine gelince tutar burada görünür.";
     }
-    gs.forEach(function (g, i) {
-      g.addEventListener("mouseenter", function () { goster(i); });
-      g.addEventListener("mouseleave", birak);
-      g.addEventListener("focus", function () { goster(i); });
-      g.addEventListener("blur", birak);
-      g.addEventListener("click", function () { panelAc(i); });
-      g.addEventListener("keydown", function (e) {
-        var j = null;
-        if (e.key === "ArrowDown" || e.key === "ArrowRight") j = (i + 1) % gs.length;
-        if (e.key === "ArrowUp" || e.key === "ArrowLeft") j = (i - 1 + gs.length) % gs.length;
-        if (j !== null) { e.preventDefault(); g.setAttribute("tabindex", "-1"); gs[j].setAttribute("tabindex", "0"); gs[j].focus(); }
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); panelAc(i); }
+    // Dinleyiciler her SVG'ye yalnız bir kez eklenir. Eskiden panelAc/panelKapat her çağrıda yeniden ekliyordu:
+    // her tıklama dinleyici sayısını katlıyor, bantlar arasında hızlı tıklayınca sayfa donuyordu (17 Ekim provası).
+    if (svg.getAttribute("data-bagli") !== "1") {
+      svg.setAttribute("data-bagli", "1");
+      gs.forEach(function (g, i) {
+        g.addEventListener("mouseenter", function () { goster(i); });
+        g.addEventListener("mouseleave", birak);
+        g.addEventListener("focus", function () { goster(i); });
+        g.addEventListener("blur", birak);
+        g.addEventListener("click", function () { panelAc(i); });
+        g.addEventListener("keydown", function (e) {
+          var j = null;
+          if (e.key === "ArrowDown" || e.key === "ArrowRight") j = (i + 1) % gs.length;
+          if (e.key === "ArrowUp" || e.key === "ArrowLeft") j = (i - 1 + gs.length) % gs.length;
+          if (j !== null) { e.preventDefault(); g.setAttribute("tabindex", "-1"); gs[j].setAttribute("tabindex", "0"); gs[j].focus(); }
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); panelAc(i); }
+        });
       });
-    });
-    if (durum.secili !== null && gs[durum.secili]) goster(durum.secili);
+    }
+    if (durum.secili !== null && gs[durum.secili]) goster(durum.secili); else birak();
   }
 
   /* ---------- bant ayrıntısı ---------- */

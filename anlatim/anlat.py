@@ -26,12 +26,18 @@ from anlatim import butce, kalip
 from anlatim.denetim import Olgu, denetle
 
 KOK_DIZIN = Path(__file__).resolve().parents[1]
-TELEGRAM_ZAMAN_ASIMI = 3.0   # Buğra 5 sn bekliyor; süreç açılışı (Windows) ve yazma için pay
+TELEGRAM_ZAMAN_ASIMI = 4.0   # Buğra 5 sn bekliyor; süreç açılışı (Windows) ve yazma için pay
 DIGER_ZAMAN_ASIMI = 30.0
 TELEGRAM_AZAMI_CIKTI = 600
 DIGER_AZAMI_CIKTI = 4000
-# Bant cümleleri çok (örnek veride ~50): tek çağrıda çıktı tavanına çarpıp kesiliyordu. Onar onar, Haiku ile.
+# Bant cümleleri çok (gerçek veride ~45): tek çağrıda çıktı tavanına çarpıp kesiliyordu. Onar onar.
 BANT_PARCA = 10
+BANT_AZAMI_CIKTI = 1500        # onar bant cümlesi için yeter; bütçe tahmini de küçülür
+# Anlatıcı Sonnet 5.5 (Buğra'nın kararı, 17 Ekim). Maliyet için yalnız en önemli bantlar modele gider,
+# kalanlar doğrulanmış kalıpla yazılır; Haiku yalnız bütçe tavanı yaklaşınca (butce.model_sec).
+MODEL_BANT_SINIRI = 20
+BANT_ONCELIK = {"bot_uyusmazlik": 0, "bot_tutuyor": 0, "ag_payi": 1, "moca_takas": 2, "moca_stake": 2,
+                "defter_farki": 3, "okunamayan_ag": 3, "takas": 4, "gonderim": 5, "cekim": 6, "taninmadi": 7}
 OZET_TURLERI = {"cekim_ozet", "kopru"}
 
 DUSUNME = {butce.SONNET: {"type": "between_tools"}, butce.HAIKU: {"type": "disabled"}}
@@ -219,13 +225,20 @@ def anlat(db_yolu, oturum: str, istemci, kullanici: str = "bugra", ay: str | Non
         # Oturumun cümleleri her çalıştırmada baştan yazılır (cumle tablosu Merve'nin).
         db.execute("DELETE FROM cumle WHERE oturum=?", (oturum,))
         db.commit()
-        # Telegram: Haiku, 3 sn. Pano başlığı: Sonnet. Bantlar: Haiku, onar onar (çıktı kesilmesin).
+        # Hepsi Sonnet: Telegram (4 sn), pano başlığı, bantlar onar onar (çıktı kesilmesin).
         ust = [g for g in liste if not g["id"].startswith("bant-")]
-        bantlar = [g for g in liste if g["id"].startswith("bant-")]
-        asamalar = [(ust[:1], TELEGRAM_ZAMAN_ASIMI, TELEGRAM_AZAMI_CIKTI, True),
+        tur = {o.no: o.tur for o in olgular}
+        bantlar = sorted((g for g in liste if g["id"].startswith("bant-")),          # önce önemli, sonra en yeni
+                         key=lambda g: (BANT_ONCELIK.get(tur.get(g["olgular"][0]), 9), -int(g["olgular"][0][1:] or 0)))
+        modele, model_disi = bantlar[:MODEL_BANT_SINIRI], bantlar[MODEL_BANT_SINIRI:]
+        asamalar = [(ust[:1], TELEGRAM_ZAMAN_ASIMI, TELEGRAM_AZAMI_CIKTI, False),
                     (ust[1:], DIGER_ZAMAN_ASIMI, DIGER_AZAMI_CIKTI, False)]
-        asamalar += [(bantlar[i:i + BANT_PARCA], DIGER_ZAMAN_ASIMI, DIGER_AZAMI_CIKTI, True)
-                     for i in range(0, len(bantlar), BANT_PARCA)]
+        asamalar += [(modele[i:i + BANT_PARCA], DIGER_ZAMAN_ASIMI, BANT_AZAMI_CIKTI, False)
+                     for i in range(0, len(modele), BANT_PARCA)]
+        for g in model_disi:                       # model sınırı dışı: doğrulanmış kalıp, çağrı yok
+            satir = _yaz(db, oturum, g, olgular, butce.KALIP, {}, "model bant sınırı (maliyet)", 0)
+            if satir:
+                yazilan.append(satir)
         for gorev_listesi, zaman_asimi, azami_cikti, hizli in asamalar:
             if not gorev_listesi:
                 continue
@@ -255,6 +268,8 @@ def _env_yukle() -> None:
 
 
 def ana(argv=None) -> int:
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     ayr = argparse.ArgumentParser(description="proof1 anlatıcı")
     ayr.add_argument("--oturum", required=True)
     arg = ayr.parse_args(argv)

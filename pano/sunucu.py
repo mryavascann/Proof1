@@ -158,6 +158,8 @@ def _env_yukle() -> None:
 
 
 def ana(argv=None) -> int:
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     _env_yukle()
     varsayilan_port = urlparse(os.environ.get("PANO_URL", "http://localhost:3003")).port or 3003
     ayr = argparse.ArgumentParser(description="proof1 pano")

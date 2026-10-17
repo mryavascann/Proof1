@@ -68,10 +68,18 @@ class CanliBot(unittest.TestCase):
         self.assertEqual(b.durum, "tutuyor")
 
     def test_dokuz_botun_besi_tutuyor(self):
-        durum = [b.durum for b in self.sonuc.values()]
+        # Devir metnindeki sayım 17 Ekim'den önce kurulan botlar içindir; sonrası prova/sahne botları.
+        once = [b for b in self.sonuc.values() if b.olus_ms < 1792195200000]       # 2026-10-17T00:00:00Z
+        durum = [b.durum for b in once]
         self.assertEqual(len(durum), 9)
         self.assertEqual(durum.count("tutuyor"), 5)
         self.assertEqual(durum.count("uyusmazlik"), 4)
+
+    def test_bugunku_coinleri_tut_botlari_uyusmazlik(self):
+        bugun = [b for b in self.sonuc.values() if b.olus_ms >= 1792195200000 and b.stop_type == "2" and b.inst == "USDT-TRY"]
+        for b in bugun:
+            self.assertEqual(b.durum, "uyusmazlik", b.algo_id)
+            self.assertTrue(b.iki_kez, b.algo_id)
 
 
 if __name__ == "__main__":

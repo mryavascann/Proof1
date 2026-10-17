@@ -59,6 +59,8 @@ def atk_denetim_kaydi(atk, db, limit: int = 50) -> int:
 
 
 def main():
+    from veri.ayar import konsol_utf8
+    konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
     from veri import db as dbm
     oturum = sys.argv[1] if len(sys.argv) > 1 else None
     for o in kanit_ozeti(dbm.baglan(), oturum):

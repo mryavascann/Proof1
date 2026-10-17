@@ -79,10 +79,14 @@ class Anlat(unittest.TestCase):
         anlat.anlat(self.db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
         satirlar = self.cumleler()
         self.assertTrue(satirlar)
-        self.assertTrue(all(s["denetim"] == "gecti" for s in satirlar))
-        # Telegram ve bantlar Haiku (hız, maliyet), pano başlığı Sonnet.
+        self.assertTrue(all(s["denetim"] == "gecti" for s in satirlar if s["model"] != "kalip"))
+        self.assertTrue(all(s["yer"].startswith("bant:") for s in satirlar if s["model"] == "kalip"))   # yalnız sınır dışı bantlar
+        # Buğra'nın kararı (17 Ekim): anlatıcı Sonnet 5.5; Haiku yalnız bütçe tavanı yaklaşınca.
+        # Model sınırının dışındaki bantlar doğrulanmış kalıpla yazılır (maliyet).
         for s in satirlar:
-            self.assertEqual(s["model"], "claude-sonnet-5-5" if s["yer"] == "pano" else "claude-haiku-5-5", s["yer"])
+            self.assertIn(s["model"], ("claude-sonnet-5-5", "kalip"), s["yer"])
+            if not s["yer"].startswith("bant:"):
+                self.assertEqual(s["model"], "claude-sonnet-5-5", s["yer"])
         yerler = [s["yer"] for s in satirlar]
         self.assertEqual(yerler.count("telegram"), 1)
         self.assertEqual(yerler.count("pano"), 1)
@@ -94,18 +98,34 @@ class Anlat(unittest.TestCase):
         b = self.butce_satirlari()
         with closing(sqlite3.connect(self.db)) as db:
             bant = sum(g["id"].startswith("bant-") for g in anlat.gorevler(anlat.olgulari_oku(db, OTURUM)))
-        self.assertEqual(len(b), 2 + -(-bant // anlat.BANT_PARCA))
+        self.assertEqual(len(b), 2 + -(-min(bant, anlat.MODEL_BANT_SINIRI) // anlat.BANT_PARCA))
         self.assertTrue(all(Decimal(r[3]) > 0 and r[4] == "ok" for r in b))
         # Hiçbir bant çağrısı BANT_PARCA'dan çok görev taşımaz (çıktı tavanına çarpmasın).
         for _, istek in istemci.cagrilar:
             self.assertLessEqual(len(json.loads(istek["messages"][0]["content"])["gorevler"]), anlat.BANT_PARCA)
 
+    def test_bant_onceligi_ve_model_siniri(self):
+        istemci = SahteIstemci(lambda i: yanit(kaliptan_cevaplar(i)))
+        anlat.anlat(self.db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
+        with closing(sqlite3.connect(self.db)) as db:
+            olgular = anlat.olgulari_oku(db, OTURUM)
+        bantlar = [g for g in anlat.gorevler(olgular) if g["id"].startswith("bant-")]
+        modele = [json.loads(i["messages"][0]["content"])["gorevler"] for _, i in istemci.cagrilar[2:]]
+        giden = [g["id"] for grup in modele for g in grup]
+        self.assertLessEqual(len(giden), anlat.MODEL_BANT_SINIRI)
+        self.assertEqual(len(giden), min(len(bantlar), anlat.MODEL_BANT_SINIRI))
+        tur = {o.no: o.tur for o in olgular}
+        sira = [anlat.BANT_ONCELIK.get(tur[g.split("-", 1)[1]], 9) for g in giden]
+        self.assertEqual(sira, sorted(sira))                     # önce bot ve ağ bantları
+        model_disi = [s for s in self.cumleler() if s["yer"].startswith("bant:") and s["model"] == "kalip"]
+        self.assertEqual(len(model_disi), max(0, len(bantlar) - anlat.MODEL_BANT_SINIRI))
+
     def test_istek_bicimi(self):
         istemci = SahteIstemci(lambda i: yanit(kaliptan_cevaplar(i)))
         anlat.anlat(self.db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
         telegram, pano = istemci.cagrilar[0][1], istemci.cagrilar[1][1]
-        self.assertEqual(telegram["model"], "claude-haiku-5-5")
-        self.assertEqual(telegram["thinking"], {"type": "disabled"})
+        self.assertEqual(telegram["model"], "claude-sonnet-5-5")
+        self.assertEqual(telegram["max_tokens"], anlat.TELEGRAM_AZAMI_CIKTI)
         istek = pano
         self.assertEqual([g["id"] for g in json.loads(istek["messages"][0]["content"])["gorevler"]], ["pano"])
         self.assertEqual(istek["model"], "claude-sonnet-5-5")
