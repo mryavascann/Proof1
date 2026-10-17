@@ -79,6 +79,12 @@ class Readme(unittest.TestCase):
         for parca in ("Demo sırası", "python -m pano.sunucu", "python -m calistir.izle", "python -m muhur.muhurle", "PROOF1_ARASTIR"):
             self.assertIn(parca, self.metin)
 
+    def test_juri_okumasi(self):
+        # Hackathon README'si: canlı demo, jüri kriterleriyle eşleşme ve kurulumsuz deneme ilk ekranda
+        self.assertIn("https://proof1-ivory.vercel.app", self.metin[:1500])
+        self.assertIn("Jüri kriterleri", self.metin)
+        self.assertIn("Kendi hesabını bağla", self.metin)
+
 
 if __name__ == "__main__":
     unittest.main()

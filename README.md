@@ -1,167 +1,147 @@
-# proof1
+# proof1 · Paran nereye gitti?
 
-<p align="center"><img src="ortak/gorsel/proof1-512.jpg" width="220" alt="proof1 — büyüteçli dedektif güvercin"></p>
+<p align="center"><img src="ortak/gorsel/proof1-512.jpg" width="200" alt="Komiser Kuş: büyüteçli dedektif güvercin"></p>
 
-**Paran nerede, nereden nereye gitti?** proof1 kendisi bulur; üç saniyede anlaşılan tek resimde gösterir.
+**proof1, OKX TR'deki paranın nereye gittiğini zincirde kendisi izleyen, bot kayıtlarındaki hatayı yakalayan ve günün defterini Avalanche'a mühürleyen, yalnız okuyan bir yapay zekâ ajanıdır.**
+
+**Canlı demo:** https://proof1-ivory.vercel.app · **Sunum:** [proof1 Sunum](https://claude.ai/artifact/TeBPJQvQkeeaoavxmh4xzn) · **Avalanche (Fuji C-Chain):** [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · ERC-8004 agentId **263**
 
 Agentic Hackathon Ankara · 17 Ekim 2026 · Buğra & Merve
 
-**Canlı demo (anonim örnek veri):** https://proof1-ivory.vercel.app · **Avalanche Fuji mühür sözleşmesi:** [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · ERC-8004 agentId **263**
+---
 
-proof1, birkaç yere dağılmış parasını bot da kullanarak yöneten OKX TR kullanıcısı içindir. Adresleri borsanın çekim kaydından kendisi bulur (kullanıcı adres yazmaz, cüzdan bağlamaz), zincirde paranın neye dönüştüğünü cümleyle anlatır, her sabah 09:00'da Telegram'a yazar ve bot kaydı ile hesaba dönen para uyuşmadığında hemen uyarır.
+## 30 saniyede
 
-## Salt okuma (mimari kural)
+- **Problem.** OKX TR'ye TL yatırıyorsun; para spot alımlara, botlara, ücretlere ve cüzdanlara dağılıyor. "Param şimdi nerede, ne kadarını kaybettim?" sorusunun cevabı tek bir yerde yok.
+- **proof1.** Borsa kaydını ve zinciri kendisi okur, defteri kapatır. Sonucu üç saniyede okunan tek bir akış şemasında gösterir. Her sabah Telegram'a yazar, bir bot durunca saniyeler içinde uyarır.
+- **Gerçek olay.** Borsanın bot kaydı **+99,89 TL kâr** diyordu; hesaba dönen paraya göre sonuç **−0,22 TL** idi. proof1 farkı (100,11 TL) yakaladı ve nedenini kendisi araştırdı: elde kalan USDT iki kez sayılmış gibi.
+- **Dene, kurulum yok.** [Siteye](https://proof1-ivory.vercel.app) gir, sağ üstten **Kendi hesabını bağla**'ya tıkla, OKX TR'de açtığın yalnız **Okuma** yetkili anahtarı yapıştır. İstekleri tarayıcın imzalar ve doğrudan OKX TR'ye gönderir. Anahtar hiçbir sunucuya gitmez.
 
-**proof1 yalnız okur.** Emir vermez, bot kurmaz ya da durdurmaz, para çekmez ya da taşımaz, öğüt vermez. Bu bir talimat değil, mimari:
+## Jüri kriterleri → proof1
 
-| Kaynak | Nasıl bağlanır | Neden yazamaz |
+| Kriter | proof1'da nerede |
+|---|---|
+| **Ajan tasarımı · otonomi** | Sabah işi tek komutla baştan sona kendiliğinden çalışır: borsa → zincir → defter → bot karşılaştırması → olgular → cümleler → Telegram. Canlı izleyici bot durunca kimse sormadan uyarır. |
+| **Ajan tasarımı · akıl yürütme ve araç seçimi** | Uyuşmazlık görünce anlatıcı hangi OKX aracını çağıracağına kendisi karar verir: plan → araç → gözlem → karar. Araştırma izi panoda (Detay → Bot) görünür; başarısız adım da gizlenmez. |
+| **Teknik uygulama** | Çalışan, yayındaki ürün (Vercel + yerel tam sürüm). Dört ayrı modül, 330'dan fazla otomatik test, iki katmanlı salt okuma kilidi. Çok zincirli defter kapanışı, bot muhasebesi, Merkle mühür ve tarayıcıda imzalı OKX istemcisi var. |
+| **Avalanche** | Fuji C-Chain'de kendi sözleşmemiz Proof1Muhur ve resmi ERC-8004 kaydı (agentId 263). Günün defter kökü saniyeler içinde kesinleşir; "dün ne yazıyordu" tartışması biter. |
+| **OKX** | Borsa tarafında OKX Agent Trade Kit (salt okuma kipi), zincir tarafında OKX OnchainOS. Kurulumsuz web kipiyle OKX.AI'de servis olarak listelenmeye hazır. |
+| **Yenilik ve değer** | Portföy uygulamaları bakiyeyi gösterir; proof1 borsanın kendi kaydını gerçek parayla denetler. Hedef: bot kullanan OKX TR kullanıcısı. Kullanıcı başına maliyet ayda yaklaşık 19 TL, fiyat OKX.AI'de ayda 0,99 $. |
+| **Demo ve sunum** | Sahnede gerçek bot durdurulur, uyarı saniyeler içinde gelir. Arayüz sade: tek akış, en çok üç kart, ayrıntı "Detay"da. |
+
+## Nasıl çalışıyor
+
+```mermaid
+flowchart LR
+  OKX["OKX TR<br/>Agent Trade Kit (salt okuma)<br/>imzalı GET"] --> V["veri<br/>defter · adresler · zincir<br/>bot karşılaştırıcı · olgular"]
+  Z["Zincirler<br/>OnchainOS · gezginler"] --> V
+  V --> A["anlatım<br/>Claude Sonnet 5.5<br/>her sayı kodla denetlenir"]
+  A --> P["pano<br/>sade akış · Detay"]
+  A --> T["Telegram<br/>09:00 özet · canlı uyarı"]
+  V --> M["mühür<br/>günün Merkle kökü"]
+  M --> AV["Avalanche Fuji<br/>Proof1Muhur · ERC-8004 agentId 263"]
+```
+
+- **Sayıları kod hesaplar, model değil.** Olgular (ör. `0,9828 AVAX`, `+99,89 TL`) koddan gelir. Model yalnız cümle kurar; cümledeki her sayı olgularla karşılaştırılır, tutmayan cümle gösterilmez, yerine kalıp cümle gider.
+- **Bilmediğini uydurmaz.** Okuyamadığı ağı "okunamadı", tanımadığı girişi "tanıyamadım" diye yazar. Defterde kapanmayan kısım "açıklayamadım" olarak görünür.
+- **Defter.** "Önceki bakiye + değişim = yeni bakiye" her para biriminde denetlenir. Bot sonucu, botun kendi kaydından değil, bota giren ve bot durunca hesaba dönen paradan hesaplanır.
+- **Adresleri kullanıcı yazmaz.** proof1 adresleri çekim kaydından bulur. Hem çekim alan hem borsaya yatırma yapan adres "büyük olasılıkla senin" sayılır; kanıtıyla gösterilir, son karar kullanıcının.
+
+## Salt okuma
+
+proof1 yalnız okur: emir vermez, bot kurmaz ya da durdurmaz, para çekmez ya da taşımaz, öğüt vermez.
+
+- **Birinci kilit:** ATK her zaman `--read-only` kipinde başlar; bir yazma aracı görünürse bağlantı reddedilir. İmzalı OKX TR uçları izinli listeyle çağrılır.
+- **İkinci kilit:** anahtarın yetkisi (`account_get_config.perm`) okunur. İşlem ya da çekim yetkisi varsa hiçbir veri okunmadan durur.
+- **Web kipi:** sayfa tarayıcı kuralıyla (CSP) yalnız `tr.okx.com`'a bağlanabilir. Dış betikler bütünlük karmasıyla (SRI) yüklenir, anahtar tarayıcıda hiçbir yere kaydedilmez.
+- **Zincire yalnız kök gider;** adres ya da tutar gitmez. Gizli mod (öntanımlı açık) bakiye seviyelerini ve yüzdeleri gizler.
+- **Model bütçesi** kullanıcı başına ayda 35 TL sert tavandır. Tavana yaklaşınca küçük model, tavanda kalıp cümle kullanılır.
+
+## OKX araçları
+
+- **Agent Trade Kit** (salt okuma): `account_get_bills`, `account_get_bills_archive`, `account_get_balance`, `account_get_config`, `spot_get_fills`, `grid_get_orders`, `grid_get_order_details`, `grid_get_sub_orders`, `market_get_candles`, `trade_get_history`. Sonuncusu ATK'nın kendi denetim kaydıdır; panoda kanıt olarak gösterilir.
+- **OKX TR imzalı uçlar** (GET): `withdrawal-history`, `deposit-history`, `asset/bills`, `asset/balances`, `account/balance`. Web kipinde ayrıca `account/config` ve `asset-valuation`.
+- **OnchainOS:** `transactions-by-address`, `all-token-balances-by-address`. BNB Chain, Base ve Optimism'de tek okuyucu, diğer ağlarda yedek. Kara liste işareti sahte token uyarısına yarar.
+
+Panonun **Kanıt** sekmesi her çağrıyı süresi, kullandığı alanlar ve "salt okunur" etiketiyle listeler.
+
+## Avalanche
+
+| | Değer | Gezgin |
 |---|---|---|
-| OKX Agent Trade Kit (ATK) | yerel MCP: `okx-trade-mcp --site tr --read-only --modules market,account,spot,bot.grid` | sunucu salt okuma kipinde 43 araç açar, hiçbiri emir vermez; istemci (`veri/atk.py`) listede yazma aracı görürse bağlantıyı reddeder |
-| OKX TR imzalı uçlar | `veri/okx_imzali.py`, OKX v5 HMAC | yalnız `GET`, yalnız izinli uç listesi (çekim, yatırma, fonlama kaydı, bakiye); listede olmayan uç çağrılamaz |
-| OnchainOS | `veri/zincir/onchainos.py` | yalnız `GET`, izinli uç listesi; ücretsiz kota dolarsa durur (x402 ödemesi kurulmaz) |
-| Zincir gezginleri | Routescan, Etherscan V2, TronGrid, açık RPC | okuma API'leri; özel anahtar yok |
-| Telegram | proof1'ın kendi botu → kullanıcının sohbeti | yalnız mesaj gönderir; token hiçbir kayda yazılmaz |
+| Mühür sözleşmesi **Proof1Muhur** | `0x7C5aB869e8d972885673f19B848084279AAD0d48` | [adres](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · [dağıtım](https://testnet.snowtrace.io/tx/0x6382f45f82190887171fdfd230f49ea2088d63e857df4a59c2964ee995bb9a09) |
+| ERC-8004 Identity Registry (resmi) | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | [adres](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e) |
+| proof1 kimliği | agentId **263** | [NFT](https://testnet.snowtrace.io/nft/0x8004A818BFB912233c491871b3d84c89A494BD9e/263) · [kayıt](https://testnet.snowtrace.io/tx/0x980921762cbd2b01335347c5fc1b52d8d8b7e06b1897d41e41e9987d4bbdc81e) |
+| 16 Ekim'in gerçek defteri (16 satır) | kök `0x2f3a…8f22`, zincirde doğrulandı | [mühür işlemi](https://testnet.snowtrace.io/tx/0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34) |
 
-**İkinci kilit, anahtarın kendisi:** proof1 başlarken OKX anahtarının yetkisini sorar (`account_get_config` → `perm`); işlem (`trade`) ya da çekim (`withdraw`) yetkisi görürse `yazma_yetkili_anahtar` diyerek çalışmayı reddeder. Sunum bilgisayarındaki iki anahtar da `read_only`. Demo botunu kuran ve durduran insan, kendi işlem yetkili anahtarını ayrı bir profilde tutar; proof1 o anahtarı görmez.
+Sözleşmeye yalnız NFT'nin sahibi yazabilir; her güne bir kez yazılır, üzerine yazılamaz, geriye tarih atılamaz. Ağ Fuji (chainId 43113); aynı resmi ERC-8004 sözleşmeleri ana ağda da kurulu, geçiş bir ayar.
 
-Her dış çağrı `cagri` tablosuna yazılır (kaynak, araç/uç, süre ms, kullanılan alanlar, sonuç, `salt_okunur`); parametreler maskelenir. Bu kayıt panodaki **OKX kanıt paneli**dir (`python -m veri.kanit`).
+**Mühür neyi kanıtlar?** Defterin o gün var olduğunu ve sonradan değişmediğini kanıtlar; doğruluğunu kanıtlamaz. Panodaki "Zincirde doğrula" zincirdeki kökü yerel kayıtla karşılaştırır.
 
-## Klasörler
+## Hızlı başlangıç
 
-| Klasör | Sahibi | İçerik |
-|---|---|---|
-| `veri/` | Buğra | borsa okuyucu (ATK + OKX TR), zincir okuyucu ve çözücü, defter, adres/sahiplik, bot karşılaştırıcı, köprü, olgular |
-| `calistir/` | Buğra | sabah işi, Telegram, canlı bot izleyicisi |
-| `anlatim/` | Merve | anlatıcı ajan, sayı denetimi, bot uyuşmazlığında araştırma ve iz kaydı |
-| `pano/` | Merve | pano (tek görsel, basit/ayrıntılı, “benim” işareti, kanıt paneli) |
-| `muhur/` | Merve | ERC-8004 kaydı ve günlük mühür (Avalanche Fuji) |
-| `ortak/` | ikisi | `SOZLESME.md` (tek bağ), `ornek/proof1_ornek.db`, `gorsel/` (proof1 görseli) |
+**Kurulumsuz (web):** https://proof1-ivory.vercel.app → **Kendi hesabını bağla** → yalnız Okuma yetkili OKX TR anahtarı. Açılışta anonim örnek veri gösterilir. Kendi hesabında çekimler, yatırmalar, hesap değeri ve çekim günündeki dolar karşılığı gelir. Bot karşılaştırması, zincir taraması ve mühür tam sürümdedir.
 
-## Kurulum
+### Kurulum (tam sürüm, kendi bilgisayarında)
 
 ```bash
+git clone https://github.com/mryavascann/Proof1 && cd Proof1
 python -m pip install -r veri/requirements.txt -r anlatim/requirements.txt -r muhur/requirements.txt   # Python 3.13
-npm install -g @okx_ai/okx-trade-mcp                # ATK 1.4.8 (okx, okx-trade-mcp)
-cp .env.ornek .env                                   # değerleri insan doldurur; depoya girmez
+npm install -g @okx_ai/okx-trade-mcp                                                                  # OKX Agent Trade Kit
+python -m pano.sunucu                                                                                 # http://localhost:3003
 ```
 
-OKX anahtarları `.env`'de yoksa ATK profil klasörleri kullanılır (`OKX_TR_ANA_PROFIL`, `OKX_TR_ALT_PROFIL`; öntanımlı `~/okx-ana`, `~/okx-atk`). İçerikleri hiçbir yere basılmaz. proof1'a OKX'te yalnız **Okuma** yetkili anahtar verilir (çekim/yatırma kaydı ana hesapta, botlar alt hesapta); anahtar ne olursa olsun ATK `--read-only` kipinde ve imzalı uçlar izinli liste ile çağrılır.
+Veri yoksa pano örnek veriyle açılır; hesabını panodaki **Kendi hesabını bağla** ile eklersin. Anahtar bilgisayarından çıkmaz, diske yazılmaz. Sürekli kullanım (sabah işi, Telegram, mühür) için değerler `.env`'e yazılır (`.env.ornek`'e bak; depoya girmez).
 
-Telegram: BotFather'da bot aç → token'ı `.env`'e yaz → Telegram'dan bota `/start` → `python -m calistir.telegram_kimlik` (sohbet kimliğini `.env`'e yazar).
-
-## Çalıştırma
+### Çalıştırma
 
 ```bash
-python -m calistir.sabah                 # sabah işi: defter → adres → zincir → fotoğraf → köprü → bot → olgu → anlatıcı → Telegram
-python -m calistir.sabah --gonderme      # aynısı, mesajı yalnız ekrana yazar
-python -m calistir.sabah --taze          # zincir önbelleğini (15 dk) atlayıp her şeyi yeniden okur
-python -m calistir.izle --algo <algoId>  # canlı bot izleyicisi: bot durdurulunca saniyeler içinde Telegram
-python -m veri.kanit sabah-2026-10-17    # OKX kanıt paneli özeti
-python -m veri.ornek                     # Merve için örnek veritabanını yeniden üret
-python -m unittest discover -s veri/testler -t .          # çevrimdışı testler
-CANLI=1 python -m unittest discover -s veri/testler -t .  # + gerçek hesapla kabul testleri
+python -m calistir.sabah                        # sabah işi: borsa → zincir → defter → bot → olgu → anlatıcı → Telegram
+python -m calistir.izle                         # canlı izleyici: bot durunca saniyeler içinde Telegram
+python -m pano.sunucu                           # pano (telefondan göstermek için: --host 0.0.0.0)
+python -m muhur.muhurle --gun 2026-10-17        # günün kökünü hesaplar (zincire yazmaz)
+python -m muhur.muhurle --gun 2026-10-17 --gonder   # kökü Fuji'ye yazar (günde bir kez)
+python -m pano.statik                           # web demosunu üretir (pano/_yayin/proof1 → Vercel)
+CANLI=1 python -m unittest discover -s veri/testler -t .   # gerçek hesapla kabul testleri
 ```
 
-Anlatım, pano ve mühür (Merve):
-
-```bash
-python -m anlatim.anlat --oturum sabah-2026-10-17     # olgulardan cümleler (claude-sonnet-5-5; sayı denetimi, olmazsa kalıp)
-python -m pano.sunucu                                  # http://localhost:3003 (telefondan: --host 0.0.0.0)
-python -m muhur.muhurle --gun 2026-10-17               # günün kökünü hesaplar (zincire yazmaz)
-python -m muhur.muhurle --gun 2026-10-17 --gonder      # kökü Fuji'deki mühür sözleşmesine yazar (günde bir kez)
-```
-
-Sabah işi `ANLATICI_KOMUT` doluysa anlatıcıyı çalıştırır (`{oturum}` yer tutucusu), Telegram cümlesini en çok 5 saniye bekler (anlatıcı öldürülmez; pano cümlelerini arka planda yazmayı sürdürür); gelmezse kalıp cümle gider. Gizli bir değer cümleye sızarsa yine kalıp cümle gider. `PROOF1_ARASTIR=canli` ise anlatıcı bot uyuşmazlığında ATK'yı (salt okuma) kendisi okur ve araştırma izini (`iz`: hedef → plan → araç → gözlem → karar → sonuç) yazar; `kayit` kayıtlı gerçek yanıtları kullanır (ekranda “kayıt” etiketiyle).
+`PROOF1_ARASTIR=canli` ise anlatıcı bot uyuşmazlığında ATK'yı kendisi okur ve araştırma izini yazar; `kayit` önceden alınmış gerçek yanıtları kullanır, ekranda "kayıt" etiketiyle.
 
 ## Demo sırası
 
 ```bash
-python -m calistir.sabah                  # 1. sabah işi: rapor kendiliğinden gelir (Telegram + “Panoyu aç”)
-python -m pano.sunucu                     # 2. pano: sade ilk sayfa (akış şeması + en çok üç kart), “Detay” ile ayrıntı
-python -m calistir.izle                   # 3. canlı an: bot durdurulunca saniyeler içinde Telegram + araştırma izi
-python -m veri.kanit sabah-2026-10-17     # 4. OKX kanıtı: çağrılan araçlar, süre, alanlar, “salt okunur”
-python -m muhur.muhurle --gun 2026-10-17  # 5. mühür kökü; Fuji gezgininde ERC-8004 NFT ve mühür işlemi
+python -m calistir.sabah                  # 1. rapor kendiliğinden gelir: Telegram + "Panoyu aç"
+python -m pano.sunucu                     # 2. pano: tek akış, en çok üç kart; Detay → Bot'ta araştırma izi
+python -m calistir.izle                   # 3. canlı an: bot insan tarafından durdurulur, uyarı saniyeler içinde gelir
+python -m muhur.muhurle --gun 2026-10-17  # 4. günün kökü Avalanche'ta; gezginde ERC-8004 NFT ve mühür işlemi
 ```
 
-Bot sahnede insan tarafından durdurulur (proof1 bot kurmaz, durdurmaz); demo botu alt hesapta önceden kurulur.
-
-## Pano
-
-İlk sayfa sade: tek bir akış şeması (OKX TR → Sen → ağlar; bant kalınlığı çekim anındaki dolar karşılığı, altın taneler paranın yönü), sorun varsa kırmızı işaret ve en çok üç kart. Sağ üstteki **Detay** düğmesi ayrıntıyı açar: Özet (dün → bugün, “bu adres senin mi?”), Uyarılar, Bot, Hareketler, Kanıt ve mühür. Hareket GSAP 3.15 ile yapılır (CDN'den; çevrimdışıyken sayfa hareketsiz ama eksiksiz çizilir), `prefers-reduced-motion` açıksa hareket yoktur. Sayılar her zaman koddan gelir; giriş animasyonu yalnız o sayıya sayarak varır.
-
-## Kendi hesabını gör
-
-Pano yalnız bir kişinin hesabına bağlı değildir. Herkes proof1'ı kendi bilgisayarında çalıştırır ve kendi hesabını bağlar:
-
-1. OKX TR → API bölümünde yeni anahtar aç; izin olarak yalnız **Okuma** seç.
-2. Panoda sağ üstteki hesap menüsünden **Kendi hesabını bağla**'ya tıkla, üç değeri (anahtar, gizli anahtar, parola) yapıştır.
-3. proof1 tarar (anahtar denetimi → borsa → zincirler → dolar karşılıkları → botlar), bitince pano o hesapla açılır; menüden hesaplar arasında geçilir.
-
-Anahtar yalnız bu bilgisayardaki pano sunucusuna gider (yalnız `localhost`'tan kabul edilir), diske, veritabanına ya da kayda yazılmaz, tarama bitince bellekten atılır; form gönderilince boşaltılır, tarayıcıda saklanmaz. İşlem ya da çekim yetkisi olan anahtar okumaya başlamadan reddedilir (`account_get_config.perm`), ATK yine `--read-only` kipindedir. Her hesabın taraması ayrı veritabanına yazılır (`data/hesaplar/<kimlik>.db`, depoya girmez); bu taramalar Telegram'a mesaj göndermez ve ücretli anlatıcıyı çalıştırmaz (kalıp cümleler).
-
-## Herkese açık demo (Vercel)
-
-```bash
-python -m pano.statik                              # pano/_yayin/proof1/: örnek veriyle statik pano
-vercel deploy pano/_yayin/proof1 --prod --yes      # Vercel'e yayın
-```
-
-Demo açılışta depodaki anonim örnek veriyi gösterir (üstte “herkese açık demo” şeridi); canlı veri ve kişisel tam adres yayına girmez.
-
-**Kurulumsuz, kendi hesabın:** sitede hesap menüsünden “Kendi hesabını bağla”ya tıkla, OKX TR'de açtığın yalnız **Okuma** yetkili anahtarı yapıştır. İstekleri tarayıcın imzalar ve doğrudan `tr.okx.com`'a gönderir (OKX TR tarayıcı isteklerine izin veriyor); sunucumuz yok, anahtar hiçbir yere gitmez ve kaydedilmez, sekme kapanınca biter. Sayfa tarayıcı kuralıyla (Content-Security-Policy) yalnız `tr.okx.com`'a bağlanabilir, dış betikler bütünlük karmasıyla (SRI) yüklenir; işlem ya da çekim yetkili anahtar ilk çağrıda reddedilir. Bu hızlı görünüm çekimleri, yatırmaları, hesap değerini ve çekim günündeki dolar karşılığını okur; bot karşılaştırması, zincir taraması ve mühür tam sürümdedir (bilgisayarda `python -m pano.sunucu`). Depoyu yeni indiren biri `python -m pano.sunucu` dediğinde, canlı veri yoksa pano örnek verinin `data/ornek.db` kopyasıyla açılır.
+Bot sahnede insan tarafından durdurulur; proof1 bot kurmaz, durdurmaz.
 
 ## Örnek veri ve canlı veri
 
 | | Örnek veri | Canlı veri |
 |---|---|---|
-| Dosya | `ortak/ornek/proof1_ornek.db` (depoda) | `data/proof1.db` (`PROOF1_DB`, depoya girmez) |
-| Adresler | yer tutucu: `BENIM_1`, `ADRES_7`, `KARSI_1` | tam adres yalnız yerel veritabanında; panoda kısaltılır (`0xABCD…1234`) |
-| İşlem kimlikleri | `TX_…` | gerçek (yalnız yerel) |
-| Bakiye seviyesi | yok | `fotograf` tablosunda; gizli modda gösterilmez |
-| Kaynak | gerçek borsa satırlarının kesiti + devir metninde doğrulanmış zincir olayları | sabah işinin o günkü okuması |
+| Nerede | `ortak/ornek/proof1_ornek.db` (depoda) | `data/proof1.db` (yalnız yerel, depoya girmez) |
+| Adresler | yer tutucu (`BENIM_1`, `ADRES_7`) | tam adres yalnız yerelde; ekranda kısaltılır (`0xABCD…1234`) |
+| Bakiye | yok | var; gizli modda gösterilmez |
+| Kullanım | web demosu, testler | sabah işi ve pano |
 
-Ekranda gösterilen bir kayıt (önceden alınmış görüntü/çıktı) her zaman **“kayıt”** etiketiyle gösterilir.
+Önceden alınmış bir görüntü ya da kayıt ekranda her zaman **"kayıt"** etiketiyle gösterilir.
 
-## OKX araçları
+## Klasörler
 
-**ATK (salt okuma MCP):** `account_get_bills`, `account_get_bills_archive` (defter, 7 gün / 3 ay), `account_get_balance`, `account_get_asset_balance`, `account_get_balance_all` (sabah fotoğrafı), `grid_get_orders` (etkin/geçmiş), `grid_get_order_details`, `grid_get_sub_orders`, `spot_get_fills`, `spot_get_orders`, `market_get_ticker`, `market_get_candles` (o anın dolar ve TL fiyatı), `market_get_instruments`, `trade_get_history` (ATK'nın kendi denetim kaydı).
+| Klasör | İçerik |
+|---|---|
+| `veri/` | OKX TR ve ATK okuyucuları, zincir okuyucuları, defter, adres sahipliği, bot karşılaştırıcı, olgular |
+| `anlatim/` | Anlatıcı (Claude Sonnet 5.5), sayı denetimi, araştırma izi, bütçe |
+| `pano/` | Yerel sunucu, sade arayüz ve web kipi (`static/tarayici.js`), Vercel demosu |
+| `muhur/` | Merkle kök, Avalanche Fuji mühür istemcisi, sözleşme |
+| `calistir/` | Sabah işi, canlı izleyici, Telegram |
+| `ortak/` | Örnek veri, görseller |
 
-**OKX TR imzalı uçlar (ATK'da yok):** `GET /api/v5/asset/withdrawal-history` (alıcı adres, `txId`, ağ, tutar, ücret), `GET /api/v5/asset/deposit-history`, `GET /api/v5/asset/bills`, `GET /api/v5/asset/balances`, `GET /api/v5/account/balance`. İstekler saniyede ~2,5 ile sınırlı (tr.okx.com yoğun okumada bağlantıyı kesiyor).
+---
 
-**OnchainOS (OKX):** `GET /api/v6/dex/post-transaction/transactions-by-address`, `GET /api/v6/dex/balance/all-token-balances-by-address`, `GET /api/v6/dex/balance/supported/chain`. Yalnız son 6 ayı verdiği için bütün geçmiş gezginden okunur; OnchainOS BNB Chain, Base ve Optimism'de tek okuyucu, diğer ağlarda yedektir (60 ağ destekliyor). Kara liste işareti (`hitBlacklist`) sahte token uyarısına yarar.
+### In English
 
-**Diğer zincir kaynakları:** Routescan (Ethereum, Avalanche, Chiliz; anahtarsız), Etherscan V2 (Ethereum, Arbitrum, Polygon; ücretsiz anahtar), TronGrid, açık RPC'ler (işlem göndereni). Okunamayan ağ sessizce kaybolmaz: “bu ağda yalnız çekimi görüyorum” olarak görünür, köprüde “izlenemeyen” satırına düşer.
-
-## Nasıl hesaplıyor
-
-- **Adresler:** çekim kaydının alıcıları (büyük/küçük harf birleştirilir). Bir adres hem çekim almış hem de borsaya yatırma yapmışsa (gönderen, yatırmanın `txId`'sinden zincirde bulunur) “büyük olasılıkla senin” — kanıtıyla. Kesin karar kullanıcının.
-- **Zincir çözücü:** her işlemde kullanıcının adresine giren ve çıkan + ağ ücreti → “verdi / aldı / ücret”. Tanınmayan giriş “tanıyamadım” olur; sahte token (görünmez karakter, alan adı isimli, resmi olmayan sözleşmeli USDC/USDT) ve adres zehirleme (ilk ve son 4 karakteri tanıdık adrese benzeyen gönderen) işaretlenir. EVM adresleri okunabilen her ağda okunur.
-- **Defter:** “önceki bakiye + değişim = yeni bakiye” her para biriminde denetlenir (ana ve alt hesabın işlem defteri, ana hesabın fonlama defteri); bot aktarımlarında hesap ve botun iç defteri ayrı zincirdir. TL banka yatırması/çekimi fonlama defterinden gelir; Lira Boost kazancı “dışarıdan gelen”, vergisi “ücret”tir.
-- **Zincir kapanışı:** her okunan adres-ağ için defterdeki yerel coin, zincirdeki bakiyeyle karşılaştırılır; kapanmayan kısım olgu olarak “bu kadarını açıklayamadım” diye gösterilir.
-- **Bot karşılaştırıcı:** gerçek sonuç = hesaba dönen TL + dönen coin × fiyat − yatırım (fiyat: durdurma dakikasının en düşük/en yüksek aralığı); borsanın kaydı (`totalPnl`) ile farkı 1 TL'yi geçerse acil uyarı.
-- **Dünle karşılaştırma (köprü):** dün 09:00 → bugün 09:00, `borsa` ve `servet` kapsamı; dünkü toplam + kalemler = bugünkü toplam, kapanmayan kısım “açıklayamadığım”.
-- **Olgular:** sayıları kod hesaplar ve Türkçe biçimde metne çevirir (`0,9828 AVAX`, `1.587 MOCA`); model sayı üretmez, her cümle olgu numarasına dayanır.
-
-## Avalanche
-
-proof1, Avalanche Fuji'de (chainId 43113) resmi ERC-8004 Identity sözleşmesine kayıtlı bir ajandır; her günün defterinin kökü kimliğe bağlı mühür sözleşmesine yazılır (`muhur/`, Merve).
-
-| | Değer | Gezgin |
-|---|---|---|
-| ERC-8004 Identity Registry (resmi, v2.0.0) | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | [snowtrace](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e) |
-| ERC-8004 Reputation (Fuji) | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | [snowtrace](https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713) |
-| proof1 agentId | **263** | [NFT](https://testnet.snowtrace.io/nft/0x8004A818BFB912233c491871b3d84c89A494BD9e/263) · [kayıt işlemi](https://testnet.snowtrace.io/tx/0x980921762cbd2b01335347c5fc1b52d8d8b7e06b1897d41e41e9987d4bbdc81e) |
-| proof1 test cüzdanı (NFT sahibi) | `0x09a292458F780a28622062DaC6560Fa6b87B3ed6` | [snowtrace](https://testnet.snowtrace.io/address/0x09a292458F780a28622062DaC6560Fa6b87B3ed6) |
-| Mühür sözleşmesi `Proof1Muhur` | `0x7C5aB869e8d972885673f19B848084279AAD0d48` | [snowtrace](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · [deploy](https://testnet.snowtrace.io/tx/0x6382f45f82190887171fdfd230f49ea2088d63e857df4a59c2964ee995bb9a09) |
-| Kimliğe bağlama | `setMetadata(263, "proof1.seal", …)` | [işlem](https://testnet.snowtrace.io/tx/0x2ef71ece22162c054f4ea64fca9eff9a71b4d793a9214d63ac1d69f672d2999f) |
-| Deneme mührü (**örnek veri**; gün etiketi 11 Ekim, işlem 17 Ekim'de gönderildi) | 13 satırın kökü | [işlem](https://testnet.snowtrace.io/tx/0x0613b3a427fbf1dce91c79a2cc994b17f760eeb30951f72ee437827895b76ea1) |
-| 16 Ekim 2026 mührü (**gerçek defter**, bot uyuşmazlığının günü) | 16 satırın kökü, zincirde doğrulandı | [işlem](https://testnet.snowtrace.io/tx/0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34) |
-
-Mühür sözleşmesine yalnız ERC-8004 kimliğinin sahibi yazar: her gün bir kez, üzerine yazılamaz, geriye tarih yok. Kök: günün her hareket satırı için yaprak = sha256(tuz ‖ kanonik satır) (tuzlar yalnız yerelde), yapraklardan Merkle kökü, sonra sha256(merkle ‖ önceki mühür kökü); bir satır öbürleri açılmadan kanıtlanabilir. Mühür, defterin o gün var olduğunu ve sonradan değişmediğini kanıtlar; doğru olduğunu kanıtlamaz. Zincire adres ya da tutar yazılmaz, yalnız kök.
-
-## Güvenlik ve gizlilik
-
-- Anahtarlar yalnız `.env`'de; kodda, kayıtta, ekran çıktısında ve hata mesajında yok.
-- Adresler ve güncel bakiye depoya, ekran görüntüsüne ve sunuma girmez; örnek veride yer tutucu kullanılır.
-- Tüm tutarlar `Decimal`; kayan nokta yok. Dış API cevabı doğrulanır, bozuk satır “okunamadı” olur, uygulama çökmez.
-- Fiyatı olmayan şeye dolar uydurulmaz (“bilinmiyor”); tanınmayan işlem tahminle doldurulmaz.
+proof1 is a read-only AI agent for OKX TR users. It follows withdrawals on-chain and reconciles the ledger. It shows where the money went in one animated flow, and it catches trading-bot records that disagree with the money actually returned (+99.89 TL reported vs −0.22 TL real). Every day it seals the ledger's Merkle root on Avalanche Fuji (Proof1Muhur `0x7C5aB869e8d972885673f19B848084279AAD0d48`, ERC-8004 agentId 263). It uses OKX Agent Trade Kit in read-only mode and OKX OnchainOS. Try it without installing anything at https://proof1-ivory.vercel.app: your browser signs the requests and talks to OKX TR directly, so the key never reaches a server.
