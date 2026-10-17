@@ -55,6 +55,20 @@ class StatikDemo(unittest.TestCase):
             for kap in (r.get("kopru") or {}).get("kapsamlar", {}).values():
                 self.assertFalse({"baslangic", "bitis"} & {k["kalem"] for k in kap["kalemler"]}, g)
 
+    def test_hareketli_sunum_webde(self):
+        # Google Slaytlar GSAP hareketlerini çalıştıramaz: hareketli deste /sunum/ adresinde yayında
+        html = (self.hedef / "sunum" / "index.html").read_text(encoding="utf-8")
+        self.assertTrue(html.lower().startswith("<!doctype html"))
+        self.assertIn('<meta charset="utf-8">', html)
+        self.assertIn("gsap", html)
+        v = json.loads((self.hedef / "vercel.json").read_text(encoding="utf-8"))
+        kurallar = {g["source"]: {h["key"]: h["value"] for h in g["headers"]} for g in v["headers"]}
+        sikı = next(k for k in kurallar if "sunum" in k and "?!" in k)          # anahtar sayfası: sıkı kural, sunum hariç
+        deste = next(k for k in kurallar if k.startswith("/sunum"))
+        self.assertIn("connect-src 'self' https://tr.okx.com", kurallar[sikı]["Content-Security-Policy"])
+        self.assertIn("connect-src 'self';", kurallar[deste]["Content-Security-Policy"])   # destede OKX'e bağlantı yok
+        self.assertEqual(list(kurallar)[0], sikı)
+
     def test_muhur_kamu_degerleri(self):
         mu = self.oku("ayrinti-1.json")["muhur"]
         self.assertEqual(mu["agent_id"], "263")

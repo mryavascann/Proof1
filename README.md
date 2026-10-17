@@ -4,9 +4,11 @@
 
 **proof1, OKX TR'deki paranın nereye gittiğini zincirde kendisi izleyen, bot kayıtlarındaki hatayı yakalayan ve günün defterini Avalanche'a mühürleyen, yalnız okuyan bir yapay zekâ ajanıdır.**
 
-**Canlı demo:** https://proof1-ivory.vercel.app · **Sunum:** [proof1 Sunum](https://claude.ai/artifact/TeBPJQvQkeeaoavxmh4xzn) · **Avalanche (Fuji C-Chain):** [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · ERC-8004 agentId **263**
+**Canlı demo:** https://proof1-ivory.vercel.app · **Sunum (hareketli):** https://proof1-ivory.vercel.app/sunum/ · **Avalanche (Fuji C-Chain):** [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · ERC-8004 agentId **263**
 
 Agentic Hackathon Ankara · 17 Ekim 2026 · Buğra & Merve
+
+> Sunumdaki hareketler tarayıcıda çalışır: bağlantıyı aç, **F** ile tam ekran, **→** ya da boşlukla ilerle. Google Slaytlar'a aktarılan kopya aynı görünür ama hareketsizdir.
 
 ---
 
@@ -27,7 +29,7 @@ Agentic Hackathon Ankara · 17 Ekim 2026 · Buğra & Merve
 | **Avalanche** | Fuji C-Chain'de kendi sözleşmemiz Proof1Muhur ve resmi ERC-8004 kaydı (agentId 263). Günün defter kökü saniyeler içinde kesinleşir; "dün ne yazıyordu" tartışması biter. |
 | **OKX** | Borsa tarafında OKX Agent Trade Kit (salt okuma kipi), zincir tarafında OKX OnchainOS. Kurulumsuz web kipiyle OKX.AI'de servis olarak listelenmeye hazır. |
 | **Yenilik ve değer** | Portföy uygulamaları bakiyeyi gösterir; proof1 borsanın kendi kaydını gerçek parayla denetler. Hedef: bot kullanan OKX TR kullanıcısı. Kullanıcı başına maliyet ayda yaklaşık 19 TL, fiyat OKX.AI'de ayda 0,99 $. |
-| **Demo ve sunum** | Sahnede gerçek bot durdurulur, uyarı saniyeler içinde gelir. Arayüz sade: tek akış, en çok üç kart, ayrıntı "Detay"da. |
+| **Demo ve sunum** | Sahnede gerçek bot durdurulur, uyarı saniyeler içinde gelir. Arayüz sade: tek akış, en çok üç kart, ayrıntı "Detay"da. Sunum webde, hareket tasarımıyla. |
 
 ## Nasıl çalışıyor
 
@@ -101,7 +103,7 @@ python -m calistir.izle                         # canlı izleyici: bot durunca s
 python -m pano.sunucu                           # pano (telefondan göstermek için: --host 0.0.0.0)
 python -m muhur.muhurle --gun 2026-10-17        # günün kökünü hesaplar (zincire yazmaz)
 python -m muhur.muhurle --gun 2026-10-17 --gonder   # kökü Fuji'ye yazar (günde bir kez)
-python -m pano.statik                           # web demosunu üretir (pano/_yayin/proof1 → Vercel)
+python -m pano.statik                           # web demosunu ve /sunum/ destesini üretir (pano/_yayin/proof1 → Vercel)
 CANLI=1 python -m unittest discover -s veri/testler -t .   # gerçek hesapla kabul testleri
 ```
 

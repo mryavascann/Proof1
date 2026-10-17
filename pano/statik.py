@@ -32,9 +32,14 @@ MUHUR = {"agent_id": "263", "sozlesme": "0x7C5aB869e8d972885673f19B848084279AAD0
 CSP = ("default-src 'self'; connect-src 'self' https://tr.okx.com; script-src 'self' https://cdn.jsdelivr.net; "
        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; "
        "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-VERCEL = {"headers": [{"source": "/(.*)", "headers": [{"key": "X-Content-Type-Options", "value": "nosniff"},
-                                                      {"key": "Referrer-Policy", "value": "no-referrer"},
-                                                      {"key": "Content-Security-Policy", "value": CSP}]}]}
+# Hareketli sunum (/sunum/): anahtar alanı yok, OKX'e bağlanmaz; satır içi betik ve cdnjs GSAP'a izin verir.
+CSP_DESTE = ("default-src 'self'; connect-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; "
+             "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+_ORTAK = [{"key": "X-Content-Type-Options", "value": "nosniff"}, {"key": "Referrer-Policy", "value": "no-referrer"}]
+VERCEL = {"headers": [{"source": "/((?!sunum).*)", "headers": _ORTAK + [{"key": "Content-Security-Policy", "value": CSP}]},
+                      {"source": "/sunum(.*)", "headers": _ORTAK + [{"key": "Content-Security-Policy", "value": CSP_DESTE}]}]}
+DESTE = KOK / "sunum" / "deste.html"            # hareketli sunum; Google Slaytlar GSAP hareketlerini çalıştıramaz
 # Zincirdeki son gerçek mühür (kamuya açık): 16 Ekim defteri, 16 satır
 SON_MUHUR = {"gun": "2026-10-16", "kok": "0x2f3a83122d7f35c83da99d125dcc25092218a0f2b825cba50b8c1b1bce6b8f22",
              "onceki_kok": None, "islem": "0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34",
@@ -75,6 +80,8 @@ def uret(hedef: Path = HEDEF) -> Path:
                 a["muhur"]["son"] = a["muhur"]["son"] or [SON_MUHUR]
                 _yaz(hedef / "veri" / f"ayrinti-{g}.json", a)
     _yaz(hedef / "veri" / "hesaplar.json", [{"hesap": "ana", "ad": "Örnek hesap"}])
+    (hedef / "sunum").mkdir(exist_ok=True)
+    shutil.copy(DESTE, hedef / "sunum" / "index.html")
     _yaz(hedef / "vercel.json", VERCEL)
     return hedef
 

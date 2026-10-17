@@ -84,6 +84,7 @@ class Readme(unittest.TestCase):
         self.assertIn("https://proof1-ivory.vercel.app", self.metin[:1500])
         self.assertIn("Jüri kriterleri", self.metin)
         self.assertIn("Kendi hesabını bağla", self.metin)
+        self.assertIn("https://proof1-ivory.vercel.app/sunum/", self.metin[:1500])   # hareketli sunum, giriş istemez
 
 
 if __name__ == "__main__":
