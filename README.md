@@ -48,6 +48,7 @@ Telegram: BotFather'da bot aç → token'ı `.env`'e yaz → Telegram'dan bota `
 ```bash
 python -m calistir.sabah                 # sabah işi: defter → adres → zincir → fotoğraf → köprü → bot → olgu → anlatıcı → Telegram
 python -m calistir.sabah --gonderme      # aynısı, mesajı yalnız ekrana yazar
+python -m calistir.sabah --taze          # zincir önbelleğini (15 dk) atlayıp her şeyi yeniden okur
 python -m calistir.izle --algo <algoId>  # canlı bot izleyicisi: bot durdurulunca saniyeler içinde Telegram
 python -m veri.kanit sabah-2026-10-17    # OKX kanıt paneli özeti
 python -m veri.ornek                     # Merve için örnek veritabanını yeniden üret
@@ -83,7 +84,8 @@ Ekranda gösterilen bir kayıt (önceden alınmış görüntü/çıktı) her zam
 
 - **Adresler:** çekim kaydının alıcıları (büyük/küçük harf birleştirilir). Bir adres hem çekim almış hem de borsaya yatırma yapmışsa (gönderen, yatırmanın `txId`'sinden zincirde bulunur) “büyük olasılıkla senin” — kanıtıyla. Kesin karar kullanıcının.
 - **Zincir çözücü:** her işlemde kullanıcının adresine giren ve çıkan + ağ ücreti → “verdi / aldı / ücret”. Tanınmayan giriş “tanıyamadım” olur; sahte token (görünmez karakter, alan adı isimli, resmi olmayan sözleşmeli USDC/USDT) ve adres zehirleme (ilk ve son 4 karakteri tanıdık adrese benzeyen gönderen) işaretlenir. EVM adresleri okunabilen her ağda okunur.
-- **Defter:** “önceki bakiye + değişim = yeni bakiye” her para biriminde denetlenir; bot aktarımlarında hesap ve botun iç defteri ayrı zincirdir.
+- **Defter:** “önceki bakiye + değişim = yeni bakiye” her para biriminde denetlenir (ana ve alt hesabın işlem defteri, ana hesabın fonlama defteri); bot aktarımlarında hesap ve botun iç defteri ayrı zincirdir. TL banka yatırması/çekimi fonlama defterinden gelir; Lira Boost kazancı “dışarıdan gelen”, vergisi “ücret”tir.
+- **Zincir kapanışı:** her okunan adres-ağ için defterdeki yerel coin, zincirdeki bakiyeyle karşılaştırılır; kapanmayan kısım olgu olarak “bu kadarını açıklayamadım” diye gösterilir.
 - **Bot karşılaştırıcı:** gerçek sonuç = hesaba dönen TL + dönen coin × fiyat − yatırım (fiyat: durdurma dakikasının en düşük/en yüksek aralığı); borsanın kaydı (`totalPnl`) ile farkı 1 TL'yi geçerse acil uyarı.
 - **Dünle karşılaştırma (köprü):** dün 09:00 → bugün 09:00, `borsa` ve `servet` kapsamı; dünkü toplam + kalemler = bugünkü toplam, kapanmayan kısım “açıklayamadığım”.
 - **Olgular:** sayıları kod hesaplar ve Türkçe biçimde metne çevirir (`0,9828 AVAX`, `1.587 MOCA`); model sayı üretmez, her cümle olgu numarasına dayanır.
