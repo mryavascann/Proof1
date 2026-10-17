@@ -13,10 +13,9 @@
 <header class="ust">
   <div class="ust-ic">
     <span class="logo">proof1</span>
-    <nav class="gezinti" aria-label="Bölümler">
-      <a href="#akis" aria-current="page">Akış</a>
-      <a href="#fark">Dünden bugüne</a>
-      <a href="#uyarilar-bolum">Uyarılar</a>
+    <nav class="gezinti" aria-label="Görünüm">
+      <a href="#genel" id="git-genel" aria-current="page">Genel Bakış</a>
+      <a href="#ayrintilar" id="git-ayrinti">Ayrıntılar</a>
     </nav>
     <span class="bosluk"></span>
     <button type="button" class="rozet" id="salt-okunur" aria-expanded="false" aria-controls="salt-okunur-aciklama">
@@ -91,6 +90,20 @@
     <p class="not">Yanıtın yalnız proof1'ın kendi kaydına yazılır; para taşınmaz.</p>
     <div class="sahiplik" id="sahiplik"></div>
   </section>
+</main>
+
+<main id="ayrinti" hidden aria-busy="false">
+  <div class="arac">
+    <div class="sekmeler buyuk" role="tablist" id="ayrinti-sekmeler">
+      <button type="button" role="tab" data-sekme="hareketler" aria-selected="true">Hareketler</button>
+      <button type="button" role="tab" data-sekme="bot" aria-selected="false">Bot incelemesi</button>
+      <button type="button" role="tab" data-sekme="kanitlar" aria-selected="false">Kanıtlar</button>
+    </div>
+    <span class="tazelik" id="ayrinti-durum"></span>
+  </div>
+  <section id="sekme-hareketler" class="sekme-govde" role="tabpanel"></section>
+  <section id="sekme-bot" class="sekme-govde" role="tabpanel" hidden></section>
+  <section id="sekme-kanitlar" class="sekme-govde" role="tabpanel" hidden></section>
 </main>
 
 <footer class="alt">

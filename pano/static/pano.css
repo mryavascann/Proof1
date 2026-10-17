@@ -148,3 +148,32 @@ h2{font-size:1.3rem}
   .gezinti{order:3;width:100%}
 }
 #panel-icerik{display:grid;gap:12px}
+
+/* Ayrıntılı mod */
+.sekmeler.buyuk button{font-size:14px;padding:8px 14px;min-height:40px}
+.sekme-govde{display:grid;gap:16px}
+.kucuk-not{font-size:12.5px;color:var(--ikincil)}
+.rozet-k{display:inline-block;font-size:11.5px;border:1px dashed var(--ikincil);border-radius:999px;padding:0 8px;color:var(--ikincil);margin-left:6px;vertical-align:1px}
+.rozet-k.tamam{border-style:solid;color:var(--gelen);border-color:var(--gelen)}
+.rozet-k.hata{border-style:solid;color:var(--giden);border-color:var(--giden)}
+.hucre-sag{text-align:right;font-family:var(--f-rakam);white-space:nowrap}
+td.mono,.mono{font-family:var(--f-rakam);font-size:13px}
+tr.supheli td{color:var(--uyari)}
+.iz{list-style:none;margin:0;padding:0;display:grid;gap:0;border-left:2px solid var(--cizgi)}
+.iz li{position:relative;padding:12px 0 12px 22px;display:grid;gap:4px}
+.iz li::before{content:"";position:absolute;left:-7px;top:17px;width:12px;height:12px;border-radius:50%;background:var(--zemin);border:2px solid var(--gelen)}
+.iz li.hata::before{border-color:var(--giden)}
+.iz li.son::before{background:var(--gelen)}
+.iz .ust-satir{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-weight:600}
+.iz .arac-adi{font-family:var(--f-rakam);font-weight:500;font-size:13.5px}
+.iz dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0;font-size:14.5px}
+.iz dt{color:var(--ikincil)}
+.iz dd{margin:0}
+.kanit-izgara{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px 32px;align-items:start}
+.blok{display:grid;gap:10px;align-content:start}
+.blok h3{font-size:1.1rem}
+.olcu{display:flex;align-items:baseline;gap:8px;font-family:var(--f-rakam)}
+.olcu b{font-size:1.6rem;font-weight:500}
+.cubuk{height:8px;border-radius:4px;background:var(--yuzey2);overflow:hidden}
+.cubuk span{display:block;height:100%;background:var(--gelen)}
+@media (max-width:900px){.kanit-izgara{grid-template-columns:minmax(0,1fr)}}

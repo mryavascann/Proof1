@@ -384,13 +384,195 @@
       .catch(function () { durumP.textContent = "Kaydedilemedi; yeniden dene."; sec.querySelectorAll("button").forEach(function (b) { b.disabled = false; }); });
   }
 
+  /* ---------- ayrıntılı mod ---------- */
+  var TUR = { cekim: "Çekim", yatirma: "Yatırma", takas: "Takas", gonderim: "Gönderim", giris: "Giriş", ucret: "Ücret",
+    bota_giris: "Bota giriş", bottan_donus: "Bottan dönüş", alim: "Alım", satim: "Satım", aktarim: "Aktarım", taninmadi: "Tanınmadı" };
+  durum.sekme = "hareketler";
+  function saatTr(iso) {
+    var d = new Date(iso);
+    return iso && !isNaN(d) ? d.toLocaleString("tr-TR", { timeZone: "Europe/Istanbul", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  }
+  function gorunum() {
+    var ayr = location.hash === "#ayrintilar";
+    $("pano").hidden = ayr; $("ayrinti").hidden = !ayr;
+    if (ayr) { $("git-ayrinti").setAttribute("aria-current", "page"); $("git-genel").removeAttribute("aria-current"); ayrintiYukle(); }
+    else { $("git-genel").setAttribute("aria-current", "page"); $("git-ayrinti").removeAttribute("aria-current"); }
+  }
+  function ayrintiYukle() {
+    var q = new URLSearchParams();
+    if (durum.oturum) q.set("oturum", durum.oturum);
+    q.set("gizli", durum.gizli ? "1" : "0");
+    $("ayrinti").setAttribute("aria-busy", "true");
+    return fetch("/api/ayrinti?" + q.toString(), { cache: "no-store" })
+      .then(function (y) { if (!y.ok) throw new Error(); return y.json(); })
+      .then(function (a) { durum.ayrinti = a; durum.oturum = a.oturum; ayrintiCiz(); })
+      .catch(function () { $("ayrinti-durum").textContent = "Ayrıntılar okunamadı. Sunucu çalışıyor mu?"; })
+      .finally(function () { $("ayrinti").setAttribute("aria-busy", "false"); });
+  }
+  function ayrintiCiz() {
+    var a = durum.ayrinti;
+    $("ayrinti-durum").textContent = "Rapor " + gunTr(a.oturum) + (a.gizli ? " · gizli mod açık" : "");
+    Array.prototype.forEach.call($("ayrinti-sekmeler").querySelectorAll("button"), function (b) {
+      var secili = b.getAttribute("data-sekme") === durum.sekme;
+      b.setAttribute("aria-selected", String(secili));
+      $("sekme-" + b.getAttribute("data-sekme")).hidden = !secili;
+    });
+    hareketlerCiz(a); botCiz(a); kanitCiz(a);
+  }
+  function tabloKur(basliklar, satirlar) {
+    var t = el("table"), b = el("tbody");
+    t.appendChild(el("thead", null, [el("tr", null, basliklar.map(function (h) { return el("th", { metin: h }); }))]));
+    satirlar.forEach(function (s) { b.appendChild(s); });
+    t.appendChild(b);
+    return el("div", { sinif: "tablo-sar" }, [t]);
+  }
+  function hareketlerCiz(a) {
+    var k = $("sekme-hareketler"), h = a.hareketler;
+    k.innerHTML = "";
+    k.appendChild(el("div", { sinif: "bolum-ust" }, [el("h2", { metin: "Defter" }),
+      el("span", { sinif: "donem", metin: (h.pencere || "") + " · " + h.toplam + " satır" + (h.toplam > h.satirlar.length ? " (ilk " + h.satirlar.length + ")" : "") })]));
+    if (!h.satirlar.length) k.appendChild(el("p", { sinif: "not", metin: "Bu rapor gününde defter satırı yok." }));
+    else k.appendChild(tabloKur(["Zaman", "Ne oldu", "Miktar", "Dolar", "Ağ / hesap", "Okuma", "İşlem"], h.satirlar.map(function (s) {
+      var ne = el("td", null, [(TUR[s.tur] || s.tur) + (s.karsi ? " · " + s.karsi : "")]);
+      if (s.supheli) ne.appendChild(el("span", { sinif: "rozet-k hata", metin: "şüpheli" }));
+      if (s.durum !== "ok") ne.appendChild(el("span", { sinif: "rozet-k", metin: s.durum }));
+      return el("tr", { sinif: s.supheli ? "supheli" : "" }, [el("td", { sinif: "mono", metin: saatTr(s.zaman) }), ne,
+        el("td", { sinif: "hucre-sag", metin: m(s.miktar) || "" }), el("td", { sinif: "hucre-sag", metin: s.dolar ? m(s.dolar) : "fiyat yok" }),
+        el("td", { metin: (s.ag || s.kaynak) + " · " + s.hesap }), el("td", { sinif: "mono", metin: s.kaynak_okuma }),
+        el("td", { sinif: "mono", metin: s.islem || "—" })]);
+    })));
+    k.appendChild(el("h2", { metin: "Doğrulanmış cümleler" }));
+    var ul = el("div");
+    a.cumleler.forEach(function (c) {
+      ul.appendChild(el("div", { sinif: "cumle" }, [ikon("gelen"), el("p", { metin: m(c.metin) }),
+        el("small", { metin: cumleEtiketi(c) + " · " + (c.model === "kalip" ? "kalıp" : c.model) + " · " + c.yer + " · olgu " + c.olgular.join(", ") })]));
+    });
+    if (!a.cumleler.length) ul.appendChild(el("p", { sinif: "not", metin: "Bu rapor için cümle yok." }));
+    k.appendChild(ul);
+  }
+  function botCiz(a) {
+    var k = $("sekme-bot"), b = a.bot;
+    k.innerHTML = "";
+    if (!b.olgu) { k.appendChild(el("p", { sinif: "not", metin: "Bu raporda bot kaydıyla hesap arasında uyuşmazlık yok." })); return; }
+    var o = b.olgu;
+    k.appendChild(el("h2", { metin: o.bot + " botu" }));
+    var dl = el("dl", { sinif: "bilgi" });
+    [["Kurulum / durdurma", o.kurulus + " · " + o.durdurma], ["Durdurma tipi", o.durdurma_tipi], ["Yatırım", m(o.yatirim)],
+     ["Borsanın kaydı", m(o.kayit_sonuc)], ["Hesaba dönen", m(o.donen_kote) + " ve " + m(o.donen_coin)],
+     ["Hesaba dönen paraya göre", m(o.gercek_sonuc)], ["Fark", m(o.fark) + " · " + o.neden]].forEach(function (x) {
+      if (x[1] && x[1].indexOf("undefined") < 0) { dl.appendChild(el("dt", { metin: x[0] })); dl.appendChild(el("dd", { metin: x[1] })); }
+    });
+    k.appendChild(dl);
+    k.appendChild(el("p", { sinif: "kucuk-not", metin: "Sayıları kod hesaplar (olgu " + b.olgu_no + "); kayıt, botun değil hesaba dönen paranın kaydıyla karşılaştırılır." }));
+    var bas = el("div", { sinif: "bolum-ust" }, [el("h2", { metin: "proof1'ın araştırma izi" })]);
+    if (b.kayit) bas.appendChild(el("span", { sinif: "rozet-k", metin: "kayıt · önceden alınmış gerçek yanıtlar" }));
+    k.appendChild(bas);
+    if (!b.iz.length) { k.appendChild(el("p", { sinif: "not", metin: "Bu rapor için araştırma izi yok. Anlatıcı PROOF1_ARASTIR ile çalışınca yazılır." })); return; }
+    k.appendChild(el("p", { sinif: "not", metin: "Hedef: kayıt hesaba dönen parayla tutuyor mu? Yalnız okuma araçları kullanılır; başka araç ATK'ya iletilmez." }));
+    var ol = el("ol", { sinif: "iz" });
+    b.iz.forEach(function (s, i) {
+      var hata = s.sonuc && s.sonuc !== "ok" && i < b.iz.length - 1;
+      var rozet = s.sonuc === "ok" ? el("span", { sinif: "rozet-k tamam", metin: "tamam" })
+        : hata ? el("span", { sinif: "rozet-k hata", metin: s.sonuc.indexOf("reddedildi") === 0 ? "reddedildi" : "başarısız" }) : null;
+      var dl2 = el("dl");
+      [["Gerekçe", s.dusunce], ["Gözlem", m(s.gozlem)], ["Karar", s.karar], [i === b.iz.length - 1 ? "Sonuç" : "Durum", m(s.sonuc)]].forEach(function (x) {
+        if (x[1]) { dl2.appendChild(el("dt", { metin: x[0] })); dl2.appendChild(el("dd", { metin: x[1] })); }
+      });
+      ol.appendChild(el("li", { sinif: (hata ? "hata " : "") + (i === b.iz.length - 1 ? "son" : "") }, [
+        el("div", { sinif: "ust-satir" }, [s.sira + ".", el("span", { sinif: "arac-adi", metin: s.arac }), rozet]), dl2]));
+    });
+    k.appendChild(ol);
+  }
+  function kanitCiz(a) {
+    var k = $("sekme-kanitlar"), kn = a.kanit, mu = a.muhur, bu = a.butce;
+    k.innerHTML = "";
+    var izgara = el("div", { sinif: "kanit-izgara" });
+    // OKX ve zincir çağrıları
+    var b1 = el("div", { sinif: "blok", style: "grid-column:1/-1" });
+    b1.appendChild(el("h3", { metin: "Çağrılar: OKX TR, ATK, OnchainOS, zincir" }));
+    b1.appendChild(el("p", { sinif: "olcu" }, [el("b", { metin: String(kn.toplam) }), "çağrı · " + kn.gruplar.reduce(function (s, g) { return s + g.hata; }, 0) + " hata · ",
+      el("span", { sinif: "rozet-k " + (kn.salt_okunur_hepsi ? "tamam" : "hata"), metin: kn.salt_okunur_hepsi ? "hepsi salt okunur" : "salt okunur olmayan çağrı var" })]));
+    b1.appendChild(tabloKur(["Kaynak", "Araç / uç", "Çağrı", "Hata", "Ort. süre", "Kullanılan alanlar", "Salt okunur"], kn.gruplar.slice(0, 12).map(function (g) {
+      return el("tr", null, [el("td", { metin: g.kaynak }), el("td", { sinif: "mono", metin: g.ad }), el("td", { sinif: "hucre-sag", metin: String(g.cagri) }),
+        el("td", { sinif: "hucre-sag", metin: String(g.hata) }), el("td", { sinif: "hucre-sag", metin: g.ort_ms + " ms" }),
+        el("td", { sinif: "mono", metin: g.alanlar.slice(0, 6).join(", ") + (g.alanlar.length > 6 ? " …" : "") }),
+        el("td", { metin: g.salt_okunur ? "evet" : "hayır" })]);
+    })));
+    if (kn.gruplar.length > 12) b1.appendChild(el("p", { sinif: "kucuk-not", metin: (kn.gruplar.length - 12) + " araç/uç daha var." }));
+    if (kn.hatalar.length) {
+      b1.appendChild(el("p", { sinif: "not", metin: "Son başarısız çağrılar (hata, akışı durdurmaz; adım günlüğe yazılır):" }));
+      var ul = el("ul", { sinif: "kucuk-not" });
+      kn.hatalar.forEach(function (h) { ul.appendChild(el("li", { metin: h.kaynak + " · " + h.ad + " · kod " + h.kod + " · " + h.sure_ms + " ms" })); });
+      b1.appendChild(ul);
+    }
+    izgara.appendChild(b1);
+    // Mühür
+    var b2 = el("div", { sinif: "blok" }), dl = el("dl", { sinif: "bilgi" });
+    b2.appendChild(el("h3", { metin: "Mühür · Avalanche" }));
+    function satir(x, y, link) {
+      dl.appendChild(el("dt", { metin: x }));
+      var dd = el("dd", { sinif: "mono" });
+      if (link) { var aa = el("a", { href: link, target: "_blank", rel: "noopener noreferrer", metin: y }); dd.appendChild(aa); } else dd.textContent = y;
+      dl.appendChild(dd);
+    }
+    satir("Ağ", mu.ag + " (chainId " + mu.chain_id + ")");
+    satir("ERC-8004 kimliği", mu.agent_id ? "agentId " + mu.agent_id : "yok", mu.kimlik_gezgin);
+    if (mu.sozlesme) satir("Mühür sözleşmesi", mu.sozlesme.slice(0, 6) + "…" + mu.sozlesme.slice(-4), mu.sozlesme_gezgin);
+    satir("Rapor günü", gunTr(mu.gun));
+    var dogru = el("p", { sinif: "kucuk-not" });
+    if (mu.gun_muhru) {
+      satir("Kök", mu.gun_muhru.kok.slice(0, 10) + "…" + mu.gun_muhru.kok.slice(-6));
+      satir("Önceki kök", mu.gun_muhru.onceki_kok.slice(0, 10) + "…");
+      satir("İşlem", mu.gun_muhru.islem.slice(0, 10) + "…", mu.gun_muhru.gezgin);
+      dogru.textContent = "Zincirde henüz doğrulanmadı.";
+    } else {
+      dogru.textContent = "Bu gün henüz mühürlenmedi." + (mu.son.length ? " Son mühür: " + gunTr(mu.son[0].gun) + "." : "");
+    }
+    b2.appendChild(dl);
+    b2.appendChild(dogru);
+    if (mu.gun_muhru) {
+      var dg = el("button", { type: "button", sinif: "baglanti", metin: "Zincirde doğrula" });
+      var METIN = { dogrulandi: "Doğrulandı: zincirdeki kök yerel kayıtla aynı.", uyusmuyor: "Uyuşmuyor: zincirdeki kök yerel kayıttan farklı.",
+        zincirde_yok: "Zincirde bu gün için kök yok.", baglanilamadi: "Zincire bağlanılamadı; doğrulama yapılamadı.",
+        yerel_kayit_yok: "Yerel mühür kaydı yok.", ayar_yok: "Mühür ayarları eksik (PROOF1_AGENT_ID, PROOF1_SEAL_ADDRESS)." };
+      dg.addEventListener("click", function () {
+        dogru.textContent = "Zincire soruluyor…";
+        fetch("/api/muhur-dogrula?gun=" + encodeURIComponent(mu.gun), { cache: "no-store" }).then(function (y) { return y.json(); })
+          .then(function (d) { dogru.textContent = METIN[d.durum] || d.durum; duyur(dogru.textContent); })
+          .catch(function () { dogru.textContent = METIN.baglanilamadi; });
+      });
+      b2.appendChild(dg);
+    }
+    b2.appendChild(el("p", { sinif: "not", metin: mu.not }));
+    izgara.appendChild(b2);
+    // Bütçe
+    var b3 = el("div", { sinif: "blok" });
+    b3.appendChild(el("h3", { metin: "Model bütçesi · " + bu.ay }));
+    b3.appendChild(el("p", { sinif: "olcu" }, [el("b", { metin: bu.harcanan }), "/ " + bu.tavan + " tavan"]));
+    var oran = Math.min(100, (parseFloat(bu.harcanan.replace(/\./g, "").replace(",", ".")) / parseFloat(bu.tavan.replace(",", "."))) * 100 || 0);
+    b3.appendChild(el("div", { sinif: "cubuk", role: "img", "aria-label": "Bütçenin %" + Math.round(oran) + "'i kullanıldı" }, [el("span", { style: "width:" + oran.toFixed(1) + "%" })]));
+    var dl3 = el("dl", { sinif: "bilgi" });
+    [["Kalan", bu.kalan], ["Çağrı", String(bu.cagri)], ["Şu anki kip", bu.kip === "kalip" ? "kalıp cümle (tavan)" : bu.kip],
+     ["Durumlar", Object.keys(bu.durumlar).map(function (d) { return d + ": " + bu.durumlar[d]; }).join(" · ") || "—"]].forEach(function (x) {
+      dl3.appendChild(el("dt", { metin: x[0] })); dl3.appendChild(el("dd", { metin: x[1] }));
+    });
+    b3.appendChild(dl3);
+    b3.appendChild(el("p", { sinif: "not", metin: "Kullanıcı başına ayda 35 TL sert tavan. Harcama tavanın %80'ine gelince Haiku, tavanda kalıp cümle kullanılır; tavan hiçbir çağrıyla aşılmaz." }));
+    izgara.appendChild(b3);
+    k.appendChild(izgara);
+  }
+  Array.prototype.forEach.call($("ayrinti-sekmeler").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () { durum.sekme = b.getAttribute("data-sekme"); if (durum.ayrinti) ayrintiCiz(); });
+  });
+  window.addEventListener("hashchange", gorunum);
+
   /* ---------- kontroller ---------- */
   $("gizli").addEventListener("click", function () {
     durum.gizli = !durum.gizli;
     this.setAttribute("aria-checked", String(durum.gizli));
     $("gizli-serit").hidden = !durum.gizli;
     duyur(durum.gizli ? "Gizli mod açık: tutarlar gizli" : "Gizli mod kapalı: tutarlar görünür");
-    yukle();
+    if (location.hash === "#ayrintilar") ayrintiYukle(); else yukle();
   });
   $("salt-okunur").addEventListener("click", function () {
     var a = $("salt-okunur-aciklama"); a.hidden = !a.hidden; this.setAttribute("aria-expanded", String(!a.hidden));
@@ -407,5 +589,5 @@
       if (durum.rapor && durum.dar !== ($("sema").clientWidth < 520)) { durum.dar = !durum.dar; sema(); }
     }).observe($("sema"));
   }
-  yukle();
+  yukle().then(function () { if (location.hash === "#ayrintilar") gorunum(); });
 })();

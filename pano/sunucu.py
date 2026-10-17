@@ -31,6 +31,12 @@ STATIK = Path(__file__).resolve().parent / "static"
 AZAMI_GOVDE = 4096
 
 
+def muhur_ayari() -> dict:
+    """Kamuya açık Fuji değerleri (gizli değil): agentId, mühür sözleşmesi, resmi ERC-8004 Identity."""
+    return {"agent_id": os.environ.get("PROOF1_AGENT_ID", ""), "sozlesme": os.environ.get("PROOF1_SEAL_ADDRESS", ""),
+            "kimlik": "0x8004A818BFB912233c491871b3d84c89A494BD9e"}
+
+
 def oturumlar(db: sqlite3.Connection) -> list[str]:
     satirlar = db.execute("SELECT oturum, max(rowid) FROM olgu GROUP BY oturum").fetchall()
 
@@ -90,6 +96,23 @@ def isleyici(db_yolu: Path):
                         oturum = liste[0]
                     gizli = (sorgu.get("gizli") or ["1"])[0] != "0"
                     return self._json(200, veri.rapor(db, oturum, gizli=gizli))
+                if yol == "/api/ayrinti":
+                    oturum = (sorgu.get("oturum") or [None])[0] or (oturumlar(db) or [None])[0]
+                    if not oturum:
+                        return self._json(404, {"hata": "Veri kaynağı hazırlanmadı."})
+                    gizli = (sorgu.get("gizli") or ["1"])[0] != "0"
+                    return self._json(200, veri.ayrinti(db, oturum, gizli=gizli, muhur_ayar=muhur_ayari(),
+                                                        kullanici=os.environ.get("PROOF1_KULLANICI", "bugra")))
+                if yol == "/api/muhur-dogrula":
+                    gun = (sorgu.get("gun") or [""])[0]
+                    ayar = muhur_ayari()
+                    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", gun):
+                        return self._json(400, {"hata": "gün YYYY-AA-GG olmalı"})
+                    if not (ayar["agent_id"] and ayar["sozlesme"]):
+                        return self._json(200, {"durum": "ayar_yok"})
+                    from muhur.muhurle import http_rpc
+                    rpc = http_rpc(os.environ.get("FUJI_RPC_URL", "https://avalanche-fuji-c-chain-rpc.publicnode.com"))
+                    return self._json(200, veri.muhur_dogrula(db, gun, ayar, rpc))
             return self._json(404, {"hata": "bulunamadı"})
 
         def do_POST(self):

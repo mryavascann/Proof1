@@ -118,7 +118,7 @@ def gozlem_detay(veri, bulgu: dict) -> str:
     bulgu.update(kayit_pnl=pnl, yatirim=yatirim, coin=coin, kote=kote,
                  cTime=int(r.get("cTime") or 0), uTime=int(r.get("uTime") or 0))
     return (f"Botun kaydı: {r.get('instId')} grid, yatırım {_tr(yatirim)} {_ad(kote)}, kayıt sonucu "
-            f"{_tr(pnl.quantize(Decimal('0.01')), True)} {_ad(kote)} (kayıtta {_tr(pnl)}), durdurma: "
+            f"{_tr(pnl.quantize(Decimal('0.01')), True)} {_ad(kote)} (kayıtta {_tr(pnl)} {_ad(kote)}), durdurma: "
             f"{DURDURMA.get(str(r.get('stopType')), str(r.get('stopType')))}.")
 
 
