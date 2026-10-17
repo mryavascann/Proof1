@@ -79,7 +79,10 @@ class Anlat(unittest.TestCase):
         anlat.anlat(self.db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
         satirlar = self.cumleler()
         self.assertTrue(satirlar)
-        self.assertTrue(all(s["denetim"] == "gecti" and s["model"] == "claude-sonnet-5-5" for s in satirlar))
+        self.assertTrue(all(s["denetim"] == "gecti" for s in satirlar))
+        # Telegram ve bantlar Haiku (hız, maliyet), pano başlığı Sonnet.
+        for s in satirlar:
+            self.assertEqual(s["model"], "claude-sonnet-5-5" if s["yer"] == "pano" else "claude-haiku-5-5", s["yer"])
         yerler = [s["yer"] for s in satirlar]
         self.assertEqual(yerler.count("telegram"), 1)
         self.assertEqual(yerler.count("pano"), 1)
@@ -89,13 +92,22 @@ class Anlat(unittest.TestCase):
         self.assertEqual(istemci.cagrilar[0][0], {"timeout": anlat.TELEGRAM_ZAMAN_ASIMI, "max_retries": 0})
         self.assertLessEqual(anlat.TELEGRAM_ZAMAN_ASIMI, 5)
         b = self.butce_satirlari()
-        self.assertEqual(len(b), 2)
+        with closing(sqlite3.connect(self.db)) as db:
+            bant = sum(g["id"].startswith("bant-") for g in anlat.gorevler(anlat.olgulari_oku(db, OTURUM)))
+        self.assertEqual(len(b), 2 + -(-bant // anlat.BANT_PARCA))
         self.assertTrue(all(Decimal(r[3]) > 0 and r[4] == "ok" for r in b))
+        # Hiçbir bant çağrısı BANT_PARCA'dan çok görev taşımaz (çıktı tavanına çarpmasın).
+        for _, istek in istemci.cagrilar:
+            self.assertLessEqual(len(json.loads(istek["messages"][0]["content"])["gorevler"]), anlat.BANT_PARCA)
 
     def test_istek_bicimi(self):
         istemci = SahteIstemci(lambda i: yanit(kaliptan_cevaplar(i)))
         anlat.anlat(self.db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
-        istek = istemci.cagrilar[0][1]
+        telegram, pano = istemci.cagrilar[0][1], istemci.cagrilar[1][1]
+        self.assertEqual(telegram["model"], "claude-haiku-5-5")
+        self.assertEqual(telegram["thinking"], {"type": "disabled"})
+        istek = pano
+        self.assertEqual([g["id"] for g in json.loads(istek["messages"][0]["content"])["gorevler"]], ["pano"])
         self.assertEqual(istek["model"], "claude-sonnet-5-5")
         self.assertEqual(istek["system"][0]["cache_control"], {"type": "ephemeral"})
         self.assertEqual(istek["thinking"], {"type": "between_tools"})

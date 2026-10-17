@@ -62,9 +62,11 @@ def harcanan(db: sqlite3.Connection, kullanici: str, ay: str) -> Decimal:
         "SELECT tutar_tl FROM butce WHERE kullanici=? AND ay=?", (kullanici, ay))), Decimal(0))
 
 
-def model_sec(db: sqlite3.Connection, kullanici: str, ay: str, girdi_tahmini: int, azami_cikti: int) -> str:
+def model_sec(db: sqlite3.Connection, kullanici: str, ay: str, girdi_tahmini: int, azami_cikti: int,
+              hizli: bool = False) -> str:
+    """hizli: Telegram (3 sn) ve çok sayıdaki bant cümlesi için doğrudan Haiku; tavan kuralı aynı."""
     h = harcanan(db, kullanici, ay)
-    if h + azami_tl(SONNET, girdi_tahmini, azami_cikti) <= TAVAN_TL * GECIS_ORANI:
+    if not hizli and h + azami_tl(SONNET, girdi_tahmini, azami_cikti) <= TAVAN_TL * GECIS_ORANI:
         return SONNET
     if h + azami_tl(HAIKU, girdi_tahmini, azami_cikti) <= TAVAN_TL:
         return HAIKU

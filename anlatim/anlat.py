@@ -4,7 +4,7 @@
 
 Sözleşme (ortak/SOZLESME.md · Çalıştırma bağı): Buğra'nın sabah işi bu komutu çalıştırır, 5 saniye bekler ve
 `yer='telegram'` + `denetim='gecti'` satırını okur. Bu yüzden önce yalnız Telegram cümlesi istenir ve yazılır;
-pano ve bant cümleleri ikinci çağrıda gelir.
+pano başlığı ikinci çağrıda (Sonnet), bant cümleleri onar onar sonraki çağrılarda (Haiku) gelir.
 
 Model sayı üretmez: yalnız gizli olmayan olgular gönderilir, her cevap anlatim.denetim'den geçmezse
 doğrulanmış kalıp cümle yazılır. Reddedilen ham cümle hiçbir yerde saklanmaz.
@@ -30,6 +30,8 @@ TELEGRAM_ZAMAN_ASIMI = 3.0   # Buğra 5 sn bekliyor; süreç açılışı (Windo
 DIGER_ZAMAN_ASIMI = 30.0
 TELEGRAM_AZAMI_CIKTI = 600
 DIGER_AZAMI_CIKTI = 4000
+# Bant cümleleri çok (örnek veride ~50): tek çağrıda çıktı tavanına çarpıp kesiliyordu. Onar onar, Haiku ile.
+BANT_PARCA = 10
 OZET_TURLERI = {"cekim_ozet", "kopru"}
 
 DUSUNME = {butce.SONNET: {"type": "between_tools"}, butce.HAIKU: {"type": "disabled"}}
@@ -126,13 +128,13 @@ def _kullanim(yanit) -> dict:
             ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")}
 
 
-def _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay, zaman_asimi, azami_cikti):
+def _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay, zaman_asimi, azami_cikti, hizli=False):
     """(model, {görev id: cevap}, neden) döndürür; model 'kalip' ise çağrı yapılmamış ya da başarısızdır."""
     if istemci is None:
         return butce.KALIP, {}, "model anahtarı yok"
     tahmini_istek = _istek(butce.HAIKU, gorev_listesi, olgular, azami_cikti)
     girdi_tahmini = (len(SISTEM) + len(tahmini_istek["messages"][0]["content"])) // 2 + 200
-    model = butce.model_sec(db, kullanici, ay, girdi_tahmini, azami_cikti)
+    model = butce.model_sec(db, kullanici, ay, girdi_tahmini, azami_cikti, hizli=hizli)
     if model == butce.KALIP:
         butce.yaz(db, kullanici, ay, butce.KALIP, 0, 0, Decimal(0), "tavan")
         return butce.KALIP, {}, "bütçe tavanı"
@@ -217,14 +219,19 @@ def anlat(db_yolu, oturum: str, istemci, kullanici: str = "bugra", ay: str | Non
         # Oturumun cümleleri her çalıştırmada baştan yazılır (cumle tablosu Merve'nin).
         db.execute("DELETE FROM cumle WHERE oturum=?", (oturum,))
         db.commit()
-        asamalar = [(liste[:1], TELEGRAM_ZAMAN_ASIMI, TELEGRAM_AZAMI_CIKTI),
-                    (liste[1:], DIGER_ZAMAN_ASIMI, DIGER_AZAMI_CIKTI)]
-        for gorev_listesi, zaman_asimi, azami_cikti in asamalar:
+        # Telegram: Haiku, 3 sn. Pano başlığı: Sonnet. Bantlar: Haiku, onar onar (çıktı kesilmesin).
+        ust = [g for g in liste if not g["id"].startswith("bant-")]
+        bantlar = [g for g in liste if g["id"].startswith("bant-")]
+        asamalar = [(ust[:1], TELEGRAM_ZAMAN_ASIMI, TELEGRAM_AZAMI_CIKTI, True),
+                    (ust[1:], DIGER_ZAMAN_ASIMI, DIGER_AZAMI_CIKTI, False)]
+        asamalar += [(bantlar[i:i + BANT_PARCA], DIGER_ZAMAN_ASIMI, DIGER_AZAMI_CIKTI, True)
+                     for i in range(0, len(bantlar), BANT_PARCA)]
+        for gorev_listesi, zaman_asimi, azami_cikti, hizli in asamalar:
             if not gorev_listesi:
                 continue
             bas = time.monotonic()
             model, cevaplar, neden = _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay,
-                                                   zaman_asimi, azami_cikti)
+                                                   zaman_asimi, azami_cikti, hizli)
             sure_ms = int((time.monotonic() - bas) * 1000)
             for g in gorev_listesi:
                 satir = _yaz(db, oturum, g, olgular, model, cevaplar, neden, sure_ms)
