@@ -58,7 +58,9 @@ KALIPLAR = {
     "ag_payi": lambda a: f"{a['ag']} ağına {a['cekim_sayisi']} çekimle {a['dolar']} gitti.",
     "moca_stake": _stake,
     "bot_uyusmazlik": lambda a: (f"{a['bot']} botunun kaydı {a['kayit_sonuc']} diyor; "
-                                 f"hesabına dönen paraya göre sonuç {a['gercek_sonuc']}."),
+                                 f"hesabına dönen paraya göre sonuç {a['gercek_sonuc']}."
+                                 # aynı sonuçlu iki bot panoda tekrar gibi görünmesin: durdurma zamanı
+                                 + (f" Durdurma: {a['durdurma']}." if a.get("durdurma") not in (None, "", "çalışıyor") else "")),
     "bot_tutuyor": lambda a: f"{a['bot']} botunun kaydı hesabına dönen parayla tutuyor: {a['gercek_sonuc']}.",
     "kopru_ozet": lambda a: f"{a['donem'].capitalize()}: {a['ad']} {a['miktar']} {a['yon']}.",
     "defter_farki": lambda a: (f"{a['ag']} ağında {a['adres']} adresinin bakiyesi defterle kapanmıyor; "
