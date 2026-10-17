@@ -1,0 +1,37 @@
+# Sırlar — depoya asla girmez
+.env
+.env.*
+!.env.ornek
+
+# Gerçek veri (yerel SQLite, ham yanıtlar, önbellek)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+!ortak/ornek/proof1_ornek.db
+onbellek/
+
+# Ekran görüntüleri ve kayıtlar (adres/bakiye içerebilir)
+ekran_goruntuleri/
+Screenshot*.png
+Ekran görüntüsü*.png
+*.mp4
+*.mov
+
+# Kişisel devir notları (finansal ayrıntı içerir)
+devir-*.md
+
+# Python / Node
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+.pytest_cache/
+
+# Editör / işletim sistemi
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
