@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>proof1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap">
+<link rel="stylesheet" href="/static/pano.css">
+</head>
+<body>
+<header class="ust">
+  <div class="ust-ic">
+    <span class="logo">proof1</span>
+    <nav class="gorunum" aria-label="Görünüm">
+      <a href="#" aria-current="page">Genel Bakış</a>
+      <span class="pasif" title="Ayrıntılı mod sonraki adımda">Ayrıntılar</span>
+    </nav>
+    <span class="bosluk"></span>
+    <button type="button" class="rozet" id="salt-okunur" aria-expanded="false" aria-controls="salt-okunur-aciklama">
+      <svg class="i" aria-hidden="true"><use href="#i-goz"/></svg>Salt okunur
+    </button>
+    <button type="button" class="anahtar" id="gizli" role="switch" aria-checked="true">
+      <span>Gizli mod</span><span class="ray" aria-hidden="true"></span>
+    </button>
+  </div>
+  <div class="aciklama-kutu" id="salt-okunur-aciklama" hidden>
+    proof1 OKX TR hesabını ve zincirdeki adresleri yalnız okur. Emir veremez, para çekemez ya da taşıyamaz, bot kurup durduramaz, öğüt vermez.
+    Yazdığı tek şey kendi kaydı: “Bu adres senin mi?” yanıtın.
+  </div>
+  <div class="gizli-serit" id="gizli-serit">Gizli mod açık · bakiyeler ve yüzdeler gizli, hareket tutarları görünür</div>
+</header>
+
+<main id="pano" aria-busy="true">
+  <section class="baglam">
+    <p class="ust-etiket" id="baglam-satiri">Okunuyor…</p>
+    <h1 id="ozet">Rapor hazırlanıyor.</h1>
+    <p class="ozet-durum" id="ozet-durum"></p>
+    <p class="kalan" id="kalan" hidden></p>
+  </section>
+
+  <section class="akis-bolum" aria-labelledby="akis-baslik">
+    <div class="bolum-ust">
+      <h2 id="akis-baslik">Tarihsel çekim akışı</h2>
+      <p class="donem" id="akis-donem"></p>
+    </div>
+    <p class="not" id="akis-not"></p>
+    <div class="akis-govde">
+      <div class="sema" id="sema" role="group" aria-label="Çekim akışı şeması"></div>
+      <aside class="panel" id="panel" hidden aria-labelledby="panel-baslik" tabindex="-1">
+        <div class="panel-ust">
+          <h3 id="panel-baslik"></h3>
+          <button type="button" class="kapat" id="panel-kapat" aria-label="Paneli kapat">Kapat</button>
+        </div>
+        <div id="panel-icerik"></div>
+      </aside>
+    </div>
+    <p class="okuma" id="okuma" aria-live="polite">Bir banda dokun ya da Tab ile seç: o paranın ayrıntısı açılır.</p>
+    <details class="tablo-alternatif">
+      <summary>Tablo olarak gör</summary>
+      <div class="tablo-sar"><table id="akis-tablo"></table></div>
+    </details>
+  </section>
+
+  <section class="kopru-bolum" aria-labelledby="kopru-baslik">
+    <div class="bolum-ust">
+      <h2 id="kopru-baslik">Dünden bugüne</h2>
+      <div class="sekmeler" role="tablist" id="kopru-sekmeler"></div>
+    </div>
+    <p class="not" id="kopru-not"></p>
+    <div id="kopru-icerik"></div>
+  </section>
+
+  <section class="uyari-bolum" aria-labelledby="uyari-baslik">
+    <h2 id="uyari-baslik">Uyarılar</h2>
+    <ul class="uyarilar" id="uyarilar"></ul>
+    <button type="button" class="baglanti" id="tum-uyarilar" hidden></button>
+  </section>
+
+  <section class="sahiplik-bolum" aria-labelledby="sahiplik-baslik" id="sahiplik-bolum" hidden>
+    <h2 id="sahiplik-baslik">Bu adres senin mi?</h2>
+    <p class="not">Yanıtın yalnız proof1'ın kendi kaydına yazılır; para taşınmaz. Toplamlar, veri tarafı yeniden hesaplayınca güncellenir.</p>
+    <div class="sahiplik" id="sahiplik"></div>
+  </section>
+</main>
+
+<footer class="alt">
+  <span>proof1 yalnız okur. Rakamları kod sayar.</span>
+  <span id="durum-satiri"></span>
+</footer>
+<div class="sr" aria-live="polite" id="duyuru"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-goz" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-uyari" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8v5M12 16v.01"/></symbol>
+  <symbol id="i-tamam" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-eksik" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke-dasharray="2 3"/><path d="M8.5 12h7"/></symbol>
+</svg>
+<script src="/static/pano.js"></script>
+</body>
+</html>
