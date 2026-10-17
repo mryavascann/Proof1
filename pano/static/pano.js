@@ -222,7 +222,8 @@
       '<text x="' + sx + '" y="' + f(ky + 72) + '" text-anchor="' + anc + '" class="kucuk" data-sayi="' + esc(kay.cekim_sayisi + " çekim") + '">' + esc(kay.cekim_sayisi + " çekim") + "</text></g>";
     var bakiye = borsaBakiyesi();
     s += '<g class="bakiye' + (bakiye ? "" : " gizli") + '" role="button" tabindex="0" aria-label="' + esc(bakiye ? "OKX TR bakiyesi " + bakiye + "; gizlemek için dokun" : "OKX TR bakiyesi gizli; göstermek için dokun") + '">' +
-      '<text x="' + sx + '" y="' + f(ky + 102) + '" text-anchor="' + anc + '">' + esc(bakiye ? "Bakiye " + bakiye : "Bakiye gizli") + "</text></g>";
+      '<text x="' + sx + '" y="' + f(ky + 102) + '" text-anchor="' + anc + '">' +
+      esc(bakiye ? "Bakiye " + bakiye : r.gizli ? "Bakiye gizli" : r.veri_turu === "örnek" ? "Bakiye örnek veride yok" : "Bakiye okunamadı") + "</text></g>";
     // Sen
     s += '<g class="etiket orta"><text x="' + (xM + nw / 2) + '" y="' + f(mTop - 36) + '" text-anchor="middle" class="sen-ad">Sen</text>' +
       '<text x="' + (xM + nw / 2) + '" y="' + f(mTop - 14) + '" text-anchor="middle" class="kucuk" data-sayi="' + esc(kay.adres_sayisi + " adres") + '">' +
@@ -262,9 +263,9 @@
 
   function okumaMetni(i) {
     var x = durum.bantlar[i], kay = durum.rapor.akis.kaynak;
-    if (x.tur === "kaynak") return "<b class=\"cikis\">" + esc(kay.tutar || "") + "</b><span>" + esc(kay.ad) + " → Sen · " + esc(kay.cekim_sayisi) + " çekim</span>";
+    if (x.tur === "kaynak") return "<b class=\"giris\">" + esc(kay.tutar || "") + "</b><span>" + esc(kay.ad) + " → Sen · " + esc(kay.cekim_sayisi) + " çekim</span>";
     var g = x.g;
-    if (g.tutar) return "<b>" + esc(g.tutar) + "</b><span>Sen → " + esc(g.ad) + " · " + esc(g.cekim_sayisi) + " çekim</span>";
+    if (g.tutar) return "<b class=\"cikis\">" + esc(g.tutar) + "</b><span>Sen → " + esc(g.ad) + " · " + esc(g.cekim_sayisi) + " çekim</span>";
     return "<b>" + esc(g.ad) + "</b><span>" + esc((g.alt || []).map(function (z) { return z.ad + " " + z.tutar; }).join(" · ")) + "</span>";
   }
 
@@ -337,8 +338,8 @@
       g.fillStyle = r; g.fillRect(0, 0, 48, 48);
       return c;
     }
-    var tane = taneCiz("rgba(255,244,214,1)", "rgba(255,216,142,.95)", "rgba(246,180,69,");        // giriş: altın
-    var taneCikis = taneCiz("rgba(232,243,255,1)", "rgba(179,212,255,.95)", "rgba(124,184,255,");  // hesaptan çıkış: mavi
+    var tane = taneCiz("rgba(255,244,214,1)", "rgba(255,216,142,.95)", "rgba(246,180,69,");        // giriş (sana gelen): altın
+    var taneCikis = taneCiz("rgba(232,243,255,1)", "rgba(179,212,255,.95)", "rgba(124,184,255,");  // çıkış (ağlara giden): mavi
     function bz(p0, p1, p2, p3, t) { var u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; }
     function nokta(b, t, s) {
       var xm = (b.x1 + b.x2) / 2, ya = b.a0 + s * (b.a1 - b.a0), yb = b.b0 + s * (b.b1 - b.b0);
@@ -408,7 +409,7 @@
           if (tt < 0) break;
           var xy = nokta(b, tt, s), boy = p.r * (p.parla ? 4.4 : 3.2) * (1 - k * 0.2);
           ctx.globalAlpha = Math.max(0, a * (k === 0 ? 0.95 : 0.3 * (1 - k * 0.25)));
-          ctx.drawImage(p.asama === 0 ? taneCikis : tane, xy[0] - boy, xy[1] - boy, boy * 2, boy * 2);
+          ctx.drawImage(p.asama === 0 ? tane : taneCikis, xy[0] - boy, xy[1] - boy, boy * 2, boy * 2);
         }
       }
       ctx.globalAlpha = 1;
@@ -545,7 +546,7 @@
     if (x.tur === "kaynak") {
       var kay = r.akis.kaynak;
       $("panel-baslik").textContent = kay.ad + " → Sen";
-      ic.appendChild(el("p", { sinif: "buyuk-sayi cikis", metin: kay.tutar || "—" }));
+      ic.appendChild(el("p", { sinif: "buyuk-sayi", metin: kay.tutar || "—" }));
       ic.appendChild(el("p", { sinif: "meta", metin: kay.cekim_sayisi + " çekim · " + kay.adres_sayisi + " adres" }));
       ic.appendChild(el("p", { sinif: "not", metin: r.akis.not }));
       ic.appendChild(el("h3", { metin: "Ne oldu" }));
@@ -553,7 +554,7 @@
     } else {
       var g = x.g;
       $("panel-baslik").textContent = "Sen → " + g.ad;
-      if (g.tutar) ic.appendChild(el("p", { sinif: "buyuk-sayi", metin: g.tutar }));
+      if (g.tutar) ic.appendChild(el("p", { sinif: "buyuk-sayi cikis", metin: g.tutar }));
       if (g.cekim_sayisi) ic.appendChild(el("p", { sinif: "meta", metin: g.cekim_sayisi + " çekim · çekim anındaki dolar karşılığı" }));
       (g.alt || [g]).forEach(function (z) {
         ic.appendChild(el("h3", { metin: g.alt ? z.ad + " · " + z.tutar + " · " + z.cekim_sayisi + " çekim" : "Okunan katmanlar" }));

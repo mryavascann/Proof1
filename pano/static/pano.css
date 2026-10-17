@@ -129,21 +129,21 @@ body.taraniyor .hesap-nokta { background: var(--altin); box-shadow: 0 0 12px var
 body.veri-yok .kus-golge { display: none; }
 
 /* akış şeması */
-.bant .b { fill: url(#g-akis); opacity: .2; transition: opacity .35s var(--yumusak); }
-.bant .kenar { fill: none; stroke: url(#g-kenar); stroke-width: 1; opacity: .5; transition: opacity .35s; }
+.bant .b { fill: url(#g-cikis); opacity: .2; transition: opacity .35s var(--yumusak); }
+.bant .kenar { fill: none; stroke: url(#g-cikis-kenar); stroke-width: 1; opacity: .5; transition: opacity .35s; }
 .bant { cursor: pointer; outline: none; }
 .bant:hover .b, .bant.secili .b { opacity: .46; }
 .bant:focus-visible .b { opacity: .46; }
 .bant:focus-visible .kenar { stroke: var(--altin-acik); opacity: 1; }
 svg.vurgu .bant:not(.secili) .b { opacity: .07; }
 svg.vurgu .bant:not(.secili) .kenar { opacity: .15; }
-.dugum { fill: var(--altin); filter: url(#parilti); }
+.dugum { fill: var(--cikis); filter: url(#parilti); }
 .dugum.sen { fill: var(--altin-acik); }
-.dugum.kaynak { fill: var(--cikis); }
-.bant.kaynak .b { fill: url(#g-cikis); }
-.bant.kaynak .kenar { stroke: url(#g-cikis-kenar); }
-.etiket.sol .tutar { fill: var(--cikis-acik); }
-.etiket.sag .tutar tspan:first-child { fill: var(--altin-acik); }
+.dugum.kaynak { fill: var(--altin); }
+.bant.kaynak .b { fill: url(#g-akis); }
+.bant.kaynak .kenar { stroke: url(#g-kenar); }
+.etiket.sol .tutar { fill: var(--altin-acik); }
+.etiket.sag .tutar tspan:first-child { fill: var(--cikis-acik); }
 .bakiye { cursor: pointer; outline: none; }
 .bakiye text { font: 600 condensed 15.5px var(--sans); letter-spacing: .04em; fill: var(--altin); }
 .bakiye.gizli text { fill: var(--sonuk); }
@@ -171,6 +171,7 @@ svg.vurgu .etiket.sag:not(.secili) { opacity: .35; }
 }
 .okuma b { font: 400 18px var(--serif); color: var(--altin-acik); margin-right: 6px; }
 .okuma b.cikis { color: var(--cikis-acik); }
+.okuma b.giris { color: var(--altin-acik); }
 .okuma span { color: var(--soluk); }
 
 .lejant { display: flex; justify-content: center; gap: 22px; margin-top: 6px; font: 600 condensed 12.5px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--sonuk); }

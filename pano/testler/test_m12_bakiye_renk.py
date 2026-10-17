@@ -54,14 +54,23 @@ class Bakiye(unittest.TestCase):
     def test_sayfa_bakiyeyi_ve_gizli_durumunu_yazar(self):
         self.assertIn('kalem === "bitis"', JS)
         self.assertIn("Bakiye gizli", JS)
+        self.assertIn("Bakiye örnek veride yok", JS)            # örnek veride sahte "0 $" gösterilmez
 
 
 class Renk(unittest.TestCase):
     def test_cikis_rengi_ve_lejant(self):
         self.assertRegex(CSS, r"--cikis:\s*#")
-        self.assertIn('id="g-cikis"', JS)            # borsadan çıkan bant
-        self.assertIn("taneCikis", JS)               # borsadan çıkan taneler mavi, cüzdana varınca altın
+        self.assertIn('id="g-cikis"', JS)
         self.assertIn('class="lejant"', HTML)
+
+    def test_sana_gelen_altin_aglara_giden_mavi(self):
+        # Kullanıcı kararı (17 Ekim): "Sen" hesabın gibi okunur; OKX TR'den sana gelen giriş altın, ağlara dağılan çıkış mavi
+        self.assertIn("p.asama === 0 ? tane : taneCikis", JS)           # borsadan altın çıkar, Sen'den sonra mavi
+        self.assertRegex(CSS, r"\.bant \.b \{ fill: url\(#g-cikis\)")
+        self.assertRegex(CSS, r"\.bant\.kaynak \.b \{ fill: url\(#g-akis\)")
+        self.assertLess(HTML.index('class="giris"'), HTML.index('class="cikis"'))
+        self.assertIn("sana gelen", HTML)
+        self.assertIn("ağlara giden", HTML)
 
     def test_isaretli_tutarlar(self):
         self.assertIn("function isaretli(", JS)

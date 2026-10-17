@@ -67,7 +67,10 @@ def uret(hedef: Path = HEDEF) -> Path:
         anlat.anlat(db_yolu, oturum, None, kullanici="ornek")           # kalıp cümleler; model çağrısı ve ücret yok
         with closing(sqlite3.connect(db_yolu)) as db:
             for g in ("1", "0"):
-                _yaz(hedef / "veri" / f"rapor-{g}.json", veri.rapor(db, oturum, gizli=g == "1"))
+                r = veri.rapor(db, oturum, gizli=g == "1")
+                for kap in (r.get("kopru") or {}).get("kapsamlar", {}).values():   # örnekte seviye yok: "0 $" yanıltır
+                    kap["kalemler"] = [k for k in kap["kalemler"] if k["kalem"] not in ("baslangic", "bitis")]
+                _yaz(hedef / "veri" / f"rapor-{g}.json", r)
                 a = veri.ayrinti(db, oturum, gizli=g == "1", muhur_ayar=MUHUR, kullanici="ornek")
                 a["muhur"]["son"] = a["muhur"]["son"] or [SON_MUHUR]
                 _yaz(hedef / "veri" / f"ayrinti-{g}.json", a)

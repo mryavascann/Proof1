@@ -48,6 +48,13 @@ class StatikDemo(unittest.TestCase):
             self.assertNotRegex(metin, r"\bT[1-9A-HJ-NP-Za-km-z]{33}\b", dosya.name)
             self.assertNotRegex(metin, r"(?i)(api_key|secret_key|passphrase|bot_token)\"?\s*[:=]\s*\"[A-Za-z0-9]{8,}", dosya.name)
 
+    def test_ornek_veride_sahte_bakiye_yok(self):
+        # örnek veritabanında bakiye seviyesi yok; köprünün "0 $" seviyesi yayına konmaz (sayfa "örnek veride yok" der)
+        for g in ("0", "1"):
+            r = self.oku(f"rapor-{g}.json")
+            for kap in (r.get("kopru") or {}).get("kapsamlar", {}).values():
+                self.assertFalse({"baslangic", "bitis"} & {k["kalem"] for k in kap["kalemler"]}, g)
+
     def test_muhur_kamu_degerleri(self):
         mu = self.oku("ayrinti-1.json")["muhur"]
         self.assertEqual(mu["agent_id"], "263")
