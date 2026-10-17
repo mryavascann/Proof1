@@ -208,6 +208,7 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
         sayac[x[1]] = sayac.get(x[1], 0) + 1
         if sayac[x[1]] <= olay_siniri or x[5]:
             tutulan.append(x)
+    supheli_nolar: dict[str, list] = {}
     for ts, aid, tx, hs, bilgi, pencerede, supheli_olay in sorted(tutulan, key=lambda x: x[0]):
         ana = [h for h in hs if h["tur"] != "ucret"]
         tur = ana[0]["tur"] if ana else "ucret"
@@ -232,9 +233,13 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
             alanlar["dolar_fiyati_yok"] = ", ".join(fiyatsiz)
         no = y.ekle("supheli" if supheli_olay else tur, alanlar, kaynak=[h["id"] for h in hs])
         if supheli_olay:
-            y.uyari(bilgi.get("neden") or "supheli_token", "orta", [no])
+            supheli_nolar.setdefault(bilgi.get("neden") or "supheli_token", []).append(no)
         elif tur == "taninmadi" and pencerede:
             y.uyari("taninmadi", "bilgi", [no])
+
+    # Şüpheli olaylar tek uyarıda toplanır (panoda en çok üç uyarı): zehirleme “orta”, sahte token “bilgi”
+    for neden, nolar_ in supheli_nolar.items():
+        y.uyari(neden, "orta" if neden == "adres_zehirleme" else "bilgi", nolar_)
 
     # 6. Okunamayan ağlar (sessizce kaybolmaz)
     try:

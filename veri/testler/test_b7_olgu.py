@@ -5,7 +5,7 @@ import unittest
 from decimal import Decimal
 
 from veri import db as dbm
-from veri.adres import AdresKarti, yaz as adres_yaz
+from veri.adres import AdresKarti, yaz as adres_yaz  # noqa: F401 (testlerde kullanılır)
 from veri.borsa import Kayit
 from veri.bot import karsilastir
 from veri.defter import ayristir, cekim_hareketleri, hareketlere as dh, yaz as hyaz, zincirle
@@ -111,6 +111,23 @@ class Olgular(unittest.TestCase):
         self.assertEqual((o["cekim_sayisi"], o["adres_sayisi"]), ("1", "1"))
         aglar = [json.loads(r[0])["ag"] for r in db.execute("SELECT alanlar FROM olgu WHERE oturum='x' AND tur='ag_payi'")]
         self.assertEqual(aglar, ["Avalanche"])
+
+    def test_supheli_olaylar_tek_uyarida_toplanir(self):
+        db = dbm.baglan(":memory:")
+        a = "0x" + "aa" * 20
+        cek = [Kayit("cekim", "w1", 1791721943000, "AVAX", "AVAX-Avalanche C-Chain", Decimal("1"), Decimal("0"), "AVAX", a, "0xc1", "2")]
+        hyaz(db, cekim_hareketleri(cek))
+        adres_yaz(db, [AdresKarti(a, "avalanche", ["avalanche"], 3, "benim", "k", 1, 1, 1, 1, "BENIM_1", ["w1"])], cek)
+        aid = db.execute("SELECT id FROM adres").fetchone()[0]
+        satirlar = [{"zaman": f"2026-10-0{i}T10:00:00.000Z", "kaynak": "zincir", "hesap": "cuzdan", "adres_id": aid, "ag": "avalanche",
+                     "varlik": "SAHTE", "miktar": "5", "dolar": None, "tur": "taninmadi", "islem_kimligi": f"0xs{i}", "karsi": None,
+                     "supheli": 1, "durum": "ok", "kaynak_okuma": "t", "ham_kimlik": f"s{i}"} for i in range(1, 6)]
+        hyaz(db, satirlar)
+        olgulari_kur(db, "x", "2026-10-12", fiyat=lambda v, ts: None)
+        u = db.execute("SELECT tur, onem, olgular FROM uyari WHERE oturum='x' AND tur='supheli_token'").fetchall()
+        self.assertEqual(len(u), 1)                                   # 5 olay → tek uyarı
+        self.assertEqual(len(json.loads(u[0]["olgular"])), 5)
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM olgu WHERE oturum='x' AND tur='supheli'").fetchone()[0], 5)
 
     def test_sayi_alan_reddedilir(self):
         y = OlguYazici(dbm.baglan(":memory:"), "x")
