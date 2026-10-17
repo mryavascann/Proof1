@@ -105,7 +105,7 @@ body.taraniyor .hesap-nokta { background: var(--altin); box-shadow: 0 0 12px var
 
 /* ---------- sade: sahne ---------- */
 #sade { flex: 1; }
-.sahne { max-width: 1180px; margin: 0 auto; padding: clamp(0px, 1.2vh, 18px) clamp(16px, 4vw, 40px) 40px; text-align: center; }
+.sahne { max-width: 1180px; margin: 0 auto; padding: clamp(0px, 1.2vh, 18px) clamp(16px, 4vw, 40px) 40px; text-align: center; overflow-x: clip; }   /* silik kuş yana taşıp yatay kaydırma açmasın */
 .ust-yazi { margin: 0 0 14px; font: 600 condensed 11.5px var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--sonuk); }
 .baslik {
   margin: 0; font: 300 clamp(36px, 5vw, 66px)/1.02 var(--serif); letter-spacing: -.035em;
@@ -114,8 +114,19 @@ body.taraniyor .hesap-nokta { background: var(--altin); box-shadow: 0 0 12px var
 .baslik em { font-style: italic; color: var(--altin-acik); }
 .alt-baslik { margin: 10px auto 0; max-width: 520px; color: var(--soluk); font-size: 16px; }
 .akis { position: relative; max-width: 1060px; margin: clamp(8px, 2.4vh, 28px) auto 0; }
+.sema { position: relative; z-index: 1; }
 .sema svg { display: block; width: 100%; height: auto; overflow: visible; }
-#parcacik { position: absolute; left: 0; top: 0; pointer-events: none; }
+#parcacik { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; }
+/* Komiser Kuş akışın arkasında: büyüteci sola, akışa bakar; kenarları zemine erir, yavaşça süzülür */
+.kus-golge {
+  position: absolute; z-index: 0; pointer-events: none; right: -14%; top: 50%; width: min(52%, 560px); aspect-ratio: 1;
+  background: url(/static/kus.jpg) center / cover no-repeat; opacity: .13; filter: sepia(.55) saturate(.9) brightness(1.15);
+  -webkit-mask-image: radial-gradient(closest-side, #000 42%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 42%, transparent 100%);
+  transform: translateY(-50%); animation: suzul 9s ease-in-out infinite alternate;
+}
+@keyframes suzul { from { transform: translateY(-52%) rotate(-1.5deg); } to { transform: translateY(-47%) rotate(1.5deg); } }
+body.veri-yok .kus-golge { display: none; }
 
 /* akış şeması */
 .bant .b { fill: url(#g-akis); opacity: .2; transition: opacity .35s var(--yumusak); }
@@ -368,6 +379,7 @@ svg.dar .isaret text { font-size: 18px; }
 svg.dar .bakiye text { font-size: 20px; }
 
 @media (max-width: 720px) {
+  .kus-golge { right: -22%; width: 78%; opacity: .1; }
   .ust { gap: 8px; padding: 12px 12px; }
   .ust-sag { gap: 6px; }
   .marka span, .gizli-yazi { display: none; }

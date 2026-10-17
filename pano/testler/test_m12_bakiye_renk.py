@@ -77,6 +77,17 @@ class Katmanlar(unittest.TestCase):
         self.assertGreater(HTML.index('<aside class="cekmece"'), HTML.index("</main>"))
 
 
+class KomiserKus(unittest.TestCase):
+    """Komiser Kuş akışın arkasında silik durur: boşluğu doldurur, akışı ve yazıyı bastırmaz, tıklamayı engellemez."""
+
+    def test_silik_kus_akisin_arkasinda(self):
+        self.assertRegex(HTML, r'<div class="kus-golge" aria-hidden="true"></div>\s*<div class="sema"')
+        blok = re.search(r"\.kus-golge\s*\{([^}]*)\}", CSS).group(1)
+        self.assertIn("pointer-events: none", blok)
+        self.assertIn("mask-image", blok)
+        self.assertLessEqual(float(re.search(r"opacity:\s*([\d.]+)", blok).group(1)), 0.16)
+
+
 class SonMuhur(unittest.TestCase):
     def test_bugun_muhur_yoksa_son_muhur_dogrulanir(self):
         self.assertIn("mu.son[0]", JS)

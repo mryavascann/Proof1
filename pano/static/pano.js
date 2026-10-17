@@ -455,6 +455,7 @@
     Array.prototype.forEach.call(svg.querySelectorAll("[data-sayi]"), function (t) { sayac(t, tl, 0.6); });
     tl.from(svg.querySelectorAll(".bakiye"), { autoAlpha: 0, x: -16, duration: 1, clearProps: "all" }, 0.8);
     tl.from(".lejant", { autoAlpha: 0, y: 8, duration: 0.8, clearProps: "all" }, 1.05);
+    tl.from(".kus-golge", { autoAlpha: 0, duration: 2.2, ease: "power2.out", clearProps: "opacity,visibility" }, 0.4);
     tl.add(function () { Akis.yogunluk(1); }, 0.7);
     tl.from(svg.querySelectorAll(".isaret"), { autoAlpha: 0, scale: 0.3, transformOrigin: "50% 50%", duration: 0.9, ease: "back.out(2.2)", clearProps: "all" }, 1.45);
     tl.from("#kartlar > *", { autoAlpha: 0, y: 28, duration: 1, stagger: 0.09, clearProps: "all" }, 1.15);   // :hover yükselmesi çalışsın
