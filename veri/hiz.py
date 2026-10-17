@@ -20,3 +20,4 @@ class Sinir:
 OKX = Sinir(0.4)
 ETHERSCAN = Sinir(0.25)
 GENEL = Sinir(0.2)
+TRONGRID = Sinir(1.1)          # anahtarsız TronGrid sıkı sınırlı (429)

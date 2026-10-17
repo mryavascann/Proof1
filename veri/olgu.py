@@ -43,6 +43,15 @@ def temizle(db, oturum: str):
 
 # --- olgu kurucuları ---
 
+def _sozle(x: Decimal, kote: str) -> str:
+    """-0,2207 TL → '22 kuruş zarar'; 99,89 TL → '99,89 TL kâr'."""
+    yon = "zarar" if x < 0 else "kâr"
+    m = abs(x)
+    if kote == "TRY" and 0 < m < 1:
+        return f"{int((m * 100).quantize(Decimal(1)))} kuruş {yon}"
+    return f"{bicim.tl(m) if kote == 'TRY' else bicim.miktar(m, kote)} {yon}"
+
+
 def bot_olgusu(y: OlguYazici, b, ad: str | None = None) -> str:
     """b: veri.bot.BotSonucu. Uyuşmazlıkta acil uyarı da yazar."""
     kote = b.kote
@@ -58,8 +67,10 @@ def bot_olgusu(y: OlguYazici, b, ad: str | None = None) -> str:
         "donen_kote": para(b.donen.get(kote, Decimal(0))),
         "donen_coin": ", ".join(bicim.miktar(m, c) for c, m in donen_coin.items()) or "yok",
     }
+    alanlar["kayit_sozle"] = _sozle(b.kayit_pnl, kote)
     if b.gercek is not None:
         alanlar["gercek_sonuc"] = para(b.gercek, isaretli=True) if kote == "TRY" else para(b.gercek)
+        alanlar["gercek_sozle"] = _sozle(b.gercek, kote)
         alanlar["fark"] = para(abs(b.fark))
     if b.durum == "uyusmazlik":
         if b.iki_kez:
@@ -99,7 +110,7 @@ def _dolar(h, fiyat) -> Decimal | None:
 
 
 def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: list | None = None,
-                 pencere: tuple | None = None, fiyat=None, olay_siniri: int = 12) -> dict:
+                 pencere: tuple | None = None, fiyat=None, olay_siniri: int = 20) -> dict:
     """Oturumun olgularını ve uyarılarını yazar. Dönen: {(kapsam, kalem): [olgu no]} (köprü satırları için)."""
     temizle(db, oturum)
     y = OlguYazici(db, oturum)
@@ -160,7 +171,9 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
                 if k.kalem == "aciklanamayan" and (k.dolar or k.varlik):
                     y.uyari("aciklanamayan", "bilgi", [no])
             no = y.ekle("kopru_ozet", {"kapsam": kapsam, "ad": "borsadaki hesap" if kapsam == "borsa" else "toplam servet",
-                                       "degisim": bicim.dolar(degisim), "donem": "dün 09:00 → bugün 09:00"})
+                                       "degisim": bicim.dolar(degisim), "miktar": bicim.dolar(abs(degisim)),
+                                       "yon": "arttı" if degisim > 0 else ("azaldı" if degisim < 0 else "değişmedi"),
+                                       "donem": "dün 09:00 → bugün 09:00"})
             kopru_olgu[(kapsam, "ozet")] = [no]
 
     # 4. Botlar
@@ -182,15 +195,17 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
         ts = _ms(hs[0]["zaman"])
         pencerede = bool(pencere and pencere[0] < ts <= pencere[1])
         bilgi = olay_bilgi.get((aid, tx), {})
-        one_cikan = aid in benim and (hs[0]["tur"] == "takas" or "stake" in (bilgi.get("islev") or "").lower())
+        one_cikan = aid in benim and (hs[0]["tur"] in ("takas", "taninmadi") or "stake" in (bilgi.get("islev") or "").lower())
         if pencerede or one_cikan or hs[0]["supheli"]:
             secilen.append((ts, aid, tx, hs, bilgi, pencerede))
-    secilen.sort(key=lambda x: x[0])
+    secilen.sort(key=lambda x: -x[0])                     # adres başına en yeni olaylar kalsın
     sayac: dict = {}
-    for ts, aid, tx, hs, bilgi, pencerede in secilen:
-        sayac[aid] = sayac.get(aid, 0) + 1
-        if sayac[aid] > olay_siniri and not pencerede:
-            continue
+    tutulan = []
+    for x in secilen:
+        sayac[x[1]] = sayac.get(x[1], 0) + 1
+        if sayac[x[1]] <= olay_siniri or x[5]:
+            tutulan.append(x)
+    for ts, aid, tx, hs, bilgi, pencerede in sorted(tutulan, key=lambda x: x[0]):
         ana = [h for h in hs if h["tur"] != "ucret"]
         tur = ana[0]["tur"] if ana else "ucret"
         verilen = {h["varlik"]: -Decimal(h["miktar"]) for h in ana if Decimal(h["miktar"]) < 0}
@@ -232,6 +247,19 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
                                               "dolar": bicim.dolar(d), "durum": "bu ağda yalnız çekimi görüyorum"}))
     if nolar:
         y.uyari("okunamayan_ag", "bilgi", nolar)
+
+    # 7. Defter–zincir kapanışı (benim adresler): kapanmayan kısım açıkça söylenir
+    try:
+        kapanis = db.execute("SELECT adres_id, ag, varlik, fark FROM _kapanis").fetchall()
+    except Exception:
+        kapanis = []
+    for r in kapanis:
+        fark = Decimal(r["fark"])
+        if r["adres_id"] in benim and abs(fark) > Decimal("0.000001"):
+            no = y.ekle("defter_farki", {"adres": etiket.get(r["adres_id"], "?"), "ag": AG_ADI.get(r["ag"], r["ag"]),
+                                         "fark": bicim.miktar(fark, r["varlik"]),
+                                         "durum": "zincirdeki bakiye defterle kapanmıyor; bu kadarını açıklayamadım"})
+            y.uyari("aciklanamayan", "bilgi", [no])
     return kopru_olgu
 
 
@@ -243,12 +271,17 @@ def kalip_cumle(db, oturum: str) -> tuple[str, list[str]]:
     bot = next(((no, a) for no, (t, a) in olgular.items() if t == "bot_uyusmazlik"), None)
     if bot:
         no, a = bot
-        parcalar.append(f"{a['bot']} botunun kaydı {a['kayit_sonuc']} diyor; hesabına dönen paraya göre gerçek sonuç {a['gercek_sonuc']}.")
+        parcalar.append(f"{a['bot']} botu: kayıt {a['kayit_sozle']} diyor; hesabına dönen paraya göre {a['gercek_sozle']}.")
         dayanak.append(no)
     ozet = next(((no, a) for no, (t, a) in olgular.items() if t == "kopru_ozet" and a.get("kapsam") == "servet"), None)
     if ozet:
         no, a = ozet
-        parcalar.append(f"Dünden bugüne toplam servetin {a['degisim']} değişti.")
+        if a.get("yon") == "değişmedi":
+            parcalar.append("Dünden bugüne toplam servetin değişmedi.")
+        elif a.get("yon"):
+            parcalar.append(f"Dünden bugüne toplam servetin {a['miktar']} {a['yon']}.")
+        else:
+            parcalar.append(f"Dünden bugüne toplam servetin {a['degisim']} değişti.")
         dayanak.append(no)
     if not parcalar:
         cek = next(((no, a) for no, (t, a) in olgular.items() if t == "cekim_ozet"), None)

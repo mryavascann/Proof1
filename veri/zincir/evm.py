@@ -144,11 +144,17 @@ class GezginApi:
                 raise IOError(f"{ad}: {mesaj[:80]}")
         raise IOError(ad)
 
-    def islemler(self, adres: str, ag: Ag) -> Bacaklar:
+    def islemler(self, adres: str, ag: Ag, sayfa_boyu: int = 1000, en_cok_sayfa: int = 10) -> Bacaklar:
+        """Sayfa sayfa okur (gezginler sayfa başına en çok 1000 satır, toplam 10.000 verir)."""
         veri = {}
         for eylem in EYLEMLER:
-            veri[eylem] = self._get(ag, {"module": "account", "action": eylem, "address": adres.lower(),
-                                         "startblock": 0, "endblock": 99999999, "sort": "asc", "page": 1, "offset": 1000})
+            veri[eylem] = []
+            for sayfa in range(1, en_cok_sayfa + 1):
+                satirlar = self._get(ag, {"module": "account", "action": eylem, "address": adres.lower(), "startblock": 0,
+                                          "endblock": 99999999, "sort": "asc", "page": sayfa, "offset": sayfa_boyu})
+                veri[eylem].extend(satirlar or [])
+                if not satirlar or len(satirlar) < sayfa_boyu:
+                    break
         b = bacaklar(adres, ag, veri)
         b.kaynak = self.tur
         return b

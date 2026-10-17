@@ -20,9 +20,10 @@ class Okunamadi(Exception):
 
 
 class ZincirOkuyucu:
-    def __init__(self, db=None, oturum: str | None = None):
+    def __init__(self, db=None, oturum: str | None = None, onbellek: bool = True):
         self.db = db
         self.oturum = oturum
+        self.onbellek = onbellek
         self.gezginler = {t: GezginApi(t, db, oturum) for t in ("etherscan", "routescan")}
         self._onchainos = None
         self._tron = None
@@ -70,8 +71,19 @@ class ZincirOkuyucu:
                 uygun.append(o)
         return uygun
 
-    def oku(self, adres: str, ag: Ag, onbellek: bool = True) -> Bacaklar:
-        if onbellek:
+    def bakiye(self, adres: str, ag: Ag):
+        """Yerel coin bakiyesi (2. katman): defterin zincirle kapanış denetimi için. Okunamazsa None."""
+        for o in ("etherscan", "routescan"):
+            g = self.gezginler[o]
+            if g.destekler(ag):
+                try:
+                    return g.bakiye(adres, ag)
+                except (IOError, ValueError):
+                    continue
+        return None
+
+    def oku(self, adres: str, ag: Ag, onbellek: bool | None = None) -> Bacaklar:
+        if self.onbellek if onbellek is None else onbellek:
             b = self._bellek(adres, ag)
             if b is not None:
                 return b

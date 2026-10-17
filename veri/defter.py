@@ -185,21 +185,37 @@ def cekim_hareketleri(kayitlar: list[Kayit]) -> list[dict]:
     return sonuc
 
 
-# Fonlama hesabı (asset/bills) türleri: çekim ve yatırma ayrıntılı kayıttan gelir, burada atlanır.
+# Fonlama hesabı (asset/bills) türleri. Kripto çekim/yatırma ayrıntılı kayıttan gelir, burada atlanır;
+# TL (banka) yatırma/çekimi ise yalnız burada görünür.
 FONLAMA_ATLA = {"1", "2", "13"}
 FONLAMA_AKTARIM = {"20", "21", "22", "23", "130", "131"}
+FONLAMA_GIRIS = {"525"}        # Lira Boost kazancı (faiz)
+FONLAMA_UCRET = {"526"}        # Lira Boost vergisi
+FIAT = {"TRY"}
 
 
 def fonlama_hareketleri(ham: list[dict], hesap: str = "ana") -> list[dict]:
     sonuc = []
     for r in ham:
-        chg, ts = ondalik(r.get("balChg")), str(r.get("ts") or "")
-        if chg is None or not ts.isdigit() or str(r.get("type")) in FONLAMA_ATLA:
+        chg, ts, tip, ccy = ondalik(r.get("balChg")), str(r.get("ts") or ""), str(r.get("type")), str(r.get("ccy"))
+        if chg is None or not ts.isdigit():
             continue
-        tur = "aktarim" if str(r.get("type")) in FONLAMA_AKTARIM else "taninmadi"
+        karsi = None
+        if tip in FONLAMA_ATLA:
+            if ccy not in FIAT or tip == "13":
+                continue
+            tur, karsi = ("yatirma" if tip == "1" else "cekim"), "banka"
+        elif tip in FONLAMA_AKTARIM:
+            tur = "aktarim"
+        elif tip in FONLAMA_GIRIS:
+            tur = "giris"
+        elif tip in FONLAMA_UCRET:
+            tur = "ucret"
+        else:
+            tur = "taninmadi"
         sonuc.append({"zaman": ms_iso(ts), "kaynak": "borsa", "hesap": hesap, "adres_id": None, "ag": None,
-                      "varlik": str(r.get("ccy")), "miktar": str(chg), "dolar": None, "tur": tur,
-                      "islem_kimligi": str(r.get("billId")), "karsi": None, "supheli": 0, "durum": "ok",
+                      "varlik": ccy, "miktar": str(chg), "dolar": None, "tur": tur,
+                      "islem_kimligi": str(r.get("billId")), "karsi": karsi, "supheli": 0, "durum": "ok",
                       "kaynak_okuma": "asset/bills", "ham_kimlik": f"asset/bills:{hesap}:{r.get('billId')}"})
     return sonuc
 
@@ -232,11 +248,14 @@ HAREKET_ALANLARI = ["zaman", "kaynak", "hesap", "adres_id", "ag", "varlik", "mik
 
 
 def yaz(db, hareketler: list[dict]) -> int:
-    once = db.total_changes
-    db.executemany(f"INSERT OR IGNORE INTO hareket ({','.join(HAREKET_ALANLARI)}) VALUES ({','.join('?' * len(HAREKET_ALANLARI))})",
+    """Yeni satırı ekler; var olanın türünü/durumunu günceller (dolar ve sonradan atanan karşı taraf korunur)."""
+    once = db.execute("SELECT COUNT(*) FROM hareket").fetchone()[0]
+    db.executemany(f"INSERT INTO hareket ({','.join(HAREKET_ALANLARI)}) VALUES ({','.join('?' * len(HAREKET_ALANLARI))})"
+                   " ON CONFLICT(ham_kimlik) DO UPDATE SET tur=excluded.tur, durum=excluded.durum, supheli=excluded.supheli,"
+                   " karsi=COALESCE(excluded.karsi, hareket.karsi)",
                    [tuple(h[a] for a in HAREKET_ALANLARI) for h in hareketler])
     db.commit()
-    return db.total_changes - once
+    return db.execute("SELECT COUNT(*) FROM hareket").fetchone()[0] - once
 
 
 def defter_yaz(db, satirlar: list[DefterSatiri]):

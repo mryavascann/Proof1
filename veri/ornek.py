@@ -172,5 +172,81 @@ def uret(hedef=HEDEF) -> dict:
     return ozet
 
 
+IC_TABLOLAR_SIL = ("_zincir_ham", "_tx_gonderen", "_defter", "_atk_denetim", "_fiyat")
+MASKE = __import__("re").compile(r"(?:0x)?[0-9a-fA-F]{2,6}…[0-9a-fA-F]{4}|T[1-9A-HJ-NP-Za-km-z]{3,5}…\w{4}")
+
+
+def gecmis_gun(db, gun: str, oturum: str):
+    """Var olan defterden geçmiş bir günün köprüsü ve olguları (yeniden okuma yok; fiyatlar ATK'dan)."""
+    from datetime import datetime, timedelta, timezone
+    from veri.kopru import kopru_kur, kopruyu_yaz
+    from veri.olgu import olgulari_kur
+    ist = timezone(timedelta(hours=3))
+    bit = int(datetime.strptime(gun, "%Y-%m-%d").replace(hour=9, tzinfo=ist).timestamp() * 1000)
+    bas = bit - 24 * 3600 * 1000
+    with Atk(ayar.okx_kimlik("alt"), db, oturum) as atk:
+        f = Fiyatci(atk, db)
+        k = kopru_kur(db, gun, bas, bit, f.dolar)
+        kopruyu_yaz(db, gun, k, olgulari_kur(db, oturum, gun, k, [], (bas, bit), f.dolar))
+
+
+def canlidan(kaynak=None, hedef=HEDEF) -> dict:
+    """v2: sabah işinin gerçek çıktısından anonim kopya. Adres → etiket, işlem kimliği → TX_n, seviye yok."""
+    import sqlite3
+    kaynak = kaynak or ayar.db_yolu()
+    gecmis_gun(dbm.baglan(kaynak), "2026-10-12", GUN11)               # 11 Ekim AVAX günü
+    if hedef.exists():
+        hedef.unlink()
+    with sqlite3.connect(str(kaynak)) as k:
+        k.execute(f"VACUUM INTO '{hedef}'")
+    db = sqlite3.connect(str(hedef))
+    db.row_factory = sqlite3.Row
+    for t in IC_TABLOLAR_SIL:
+        db.execute(f"DROP TABLE IF EXISTS {t}")
+    db.execute("DROP VIEW IF EXISTS cagri_ozet")
+    db.execute("UPDATE adres SET adres=etiket, kisa=etiket, gezgin_url=NULL")
+    # Kırp: depoya sığsın. Benim adreslerin anlamlı işlemleri tam; diğer adreslerde (adres, ağ) başına son 100 satır;
+    # yalnız ücretten ibaret işlemler (onay, başarısız) atılır.
+    benim = "(SELECT id FROM adres WHERE tahmin='benim')"
+    db.execute(f"""DELETE FROM hareket WHERE id IN (SELECT id FROM (
+                     SELECT id, ROW_NUMBER() OVER (PARTITION BY adres_id, ag ORDER BY zaman DESC) sira FROM hareket
+                     WHERE hesap='cuzdan' AND tur != 'ucret' AND adres_id NOT IN {benim}) WHERE sira > 100)""")
+    db.execute("CREATE TEMP TABLE anlamli AS SELECT DISTINCT adres_id, islem_kimligi FROM hareket WHERE hesap='cuzdan' AND tur != 'ucret'")
+    db.execute("CREATE INDEX temp.anlamli_i ON anlamli (adres_id, islem_kimligi)")
+    db.execute("""DELETE FROM hareket WHERE hesap='cuzdan' AND tur='ucret' AND NOT EXISTS (
+                    SELECT 1 FROM anlamli a WHERE a.adres_id=hareket.adres_id AND a.islem_kimligi=hareket.islem_kimligi)""")
+    # İşlem kimliği → TX_n (eşleme tablosuyla tek geçiş)
+    db.execute("CREATE TEMP TABLE txmap (eski TEXT PRIMARY KEY, yeni TEXT)")
+    db.execute("INSERT INTO txmap SELECT islem_kimligi, 'TX_' || ROW_NUMBER() OVER (ORDER BY MIN(id)) FROM hareket "
+               "WHERE islem_kimligi IS NOT NULL GROUP BY islem_kimligi")
+    db.execute("UPDATE hareket SET islem_kimligi=(SELECT yeni FROM txmap WHERE eski=hareket.islem_kimligi) WHERE islem_kimligi IS NOT NULL")
+    db.execute("UPDATE hareket SET ham_kimlik='ornek:' || id")
+    try:
+        db.execute("DELETE FROM _olay WHERE tx NOT IN (SELECT eski FROM txmap)")        # kırpılanlar
+        db.execute("UPDATE _olay SET tx=(SELECT yeni FROM txmap WHERE eski=_olay.tx)")   # zincir kimlikleri zaten küçük harf
+    except sqlite3.OperationalError:
+        pass
+    from veri.kayit import maskele_metin
+    for r in db.execute("SELECT id, parametreler FROM cagri").fetchall():
+        db.execute("UPDATE cagri SET parametreler=? WHERE id=?", (MASKE.sub("…", maskele_metin(r["parametreler"])), r["id"]))
+    db.execute("DELETE FROM fotograf")                                         # seviye yok
+    db.execute("UPDATE kopru SET tutar='0', varlik_tutar='{}', aciklama=aciklama || ' (örnekte seviye yok)' "
+               "WHERE kalem IN ('baslangic','bitis')")
+    for r in db.execute("SELECT oturum, no, alanlar FROM olgu WHERE gizli=1").fetchall():
+        alanlar = {k: "gizli" for k in json.loads(r["alanlar"])}
+        db.execute("UPDATE olgu SET alanlar=? WHERE oturum=? AND no=?", (json.dumps(alanlar, ensure_ascii=False), r["oturum"], r["no"]))
+    db.execute("CREATE TABLE IF NOT EXISTS _ornek (anahtar TEXT PRIMARY KEY, deger TEXT)")
+    db.execute("DELETE FROM _ornek")
+    db.execute("INSERT INTO _ornek VALUES ('surum', 'v2'), ('uretim', ?), ('not', ?)",
+               (simdi(), "Sabah işinin gerçek çıktısı; adres/işlem kimliği yer tutucu, seviye ve gizli olgu değerleri yok."))
+    db.commit()
+    ozet = {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            for t in ("hareket", "adres", "olgu", "uyari", "kopru", "cagri", "fotograf")}
+    db.execute("VACUUM")
+    db.close()
+    return ozet
+
+
 if __name__ == "__main__":
-    print(uret())
+    import sys
+    print(uret() if "--v1" in sys.argv else canlidan())

@@ -29,6 +29,32 @@ def _tablo(db):
                   olay INTEGER, cekim_agi INTEGER, zaman TEXT, PRIMARY KEY (adres_id, ag))""")
     db.execute("""CREATE TABLE IF NOT EXISTS _olay (adres_id INTEGER, ag TEXT, tx TEXT, ts INTEGER, tur TEXT, islev TEXT,
                   neden TEXT, PRIMARY KEY (adres_id, ag, tx))""")
+    db.execute("""CREATE TABLE IF NOT EXISTS _kapanis (adres_id INTEGER, ag TEXT, varlik TEXT, defter TEXT, zincir TEXT,
+                  fark TEXT, zaman TEXT, PRIMARY KEY (adres_id, ag))""")
+
+
+def kapanislar(db) -> list[dict]:
+    """Defter (yerel coin) ile zincirdeki bakiyenin karşılaştırması; fark = zincir − defter."""
+    _tablo(db)
+    return [dict(r) for r in db.execute(
+        "SELECT a.etiket, k.ag, k.varlik, k.defter, k.zincir, k.fark FROM _kapanis k JOIN adres a ON a.id=k.adres_id ORDER BY a.id")]
+
+
+def _kapanis_yaz(db, okuyucu, adres_id: int, adres: str, ag):
+    from decimal import Decimal
+    bakiye_fn = getattr(okuyucu, "bakiye", None)
+    if bakiye_fn is None:
+        return
+    try:
+        zincir = bakiye_fn(adres, ag)
+    except Exception:
+        zincir = None
+    if zincir is None:
+        return
+    defter = sum((Decimal(r[0]) for r in db.execute(
+        "SELECT miktar FROM hareket WHERE adres_id=? AND ag=? AND varlik=? AND supheli=0", (adres_id, ag.anahtar, ag.yerel))), Decimal(0))
+    db.execute("INSERT OR REPLACE INTO _kapanis VALUES (?,?,?,?,?,?,?)",
+               (adres_id, ag.anahtar, ag.yerel, str(defter), str(zincir), str(zincir - defter), simdi()))
 
 
 def ag_durumlari(db) -> list[dict]:
@@ -98,6 +124,7 @@ def tara(db, okuyucu, cekimler, yatirmalar, borsa_adresleri: set | None = None) 
                         sonuc.yeni_hareket += hyaz(db, h)
                         db.executemany("INSERT OR REPLACE INTO _olay VALUES (?,?,?,?,?,?,?)",
                                        [(r["id"], ag.anahtar, o.tx, o.ts, o.tur, o.islev, o.neden) for o in olaylar])
+                        _kapanis_yaz(db, okuyucu, r["id"], a, ag)
                         sonuc.supheli += sum(1 for o in olaylar if o.supheli)
                         sonuc.okunan += 1
             if durum == "okunamadi":
