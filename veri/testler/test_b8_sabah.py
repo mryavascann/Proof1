@@ -2,8 +2,13 @@
 gizli değer mesaja girmez; mesaj tek cümle + “Panoyu aç”."""
 import json
 import os
+import shutil
+import sqlite3
 import sys
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from calistir.sabah import mesaj_hazirla
 from calistir.telegram import Telegram
@@ -161,6 +166,168 @@ class TelegramGonder(unittest.TestCase):
         r = db.execute("SELECT ad, parametreler FROM cagri").fetchone()
         self.assertEqual(r["ad"], "sendMessage")
         self.assertNotIn("GIZLITOKEN", r["parametreler"])
+
+
+# ---------------------------------------------------------------- sabah işinin tamamı (sahte OKX ve ATK ile)
+GUN = "2026-10-17"
+BIT_MS = 1792216800000                     # 17 Ekim 2026 09:00 İstanbul
+FATURA = {"billId": "b1", "ts": str(BIT_MS - 3_600_000), "ccy": "USDT", "balChg": "1", "bal": "5", "type": "1"}
+
+
+class SahteOkx:
+    olaylar: list = []
+    hatali_uc: str | None = None
+
+    def __init__(self, kimlik, db=None, oturum=None, oturum_http=None):
+        self.k = kimlik
+        self.olaylar.append(("okx", kimlik.hesap))
+
+    def oku(self, yol, parametreler=None, alanlar=None):
+        from veri.okx_imzali import OkxHata
+        self.olaylar.append(("okx_oku", yol))
+        if yol == self.hatali_uc:
+            raise OkxHata("50111", "Invalid OK-ACCESS-KEY")
+        return {"/api/v5/asset/balances": [{"ccy": "USDT", "bal": "10"}],
+                "/api/v5/account/balance": [{"details": [{"ccy": "USDT", "cashBal": "5"}]}]}.get(yol, [])
+
+    def sayfala(self, yol, parametreler=None, alanlar=None, **_):
+        return self.oku(yol, parametreler, alanlar)
+
+
+class SahteAtk:
+    """veri.atk.Atk yerine: başlarken (gerçekte account_get_config → yetki_denetle) istenirse reddeder."""
+    olaylar: list = []
+    reddet = False
+
+    def __init__(self, kimlik, db=None, oturum=None, yetki_denetimi=True, yetki_zorunlu=False):
+        self.k = kimlik
+        self.olaylar.append(("atk", kimlik.hesap, yetki_zorunlu))
+        self.araclar = ["account_get_config"]
+
+    def __enter__(self):
+        from veri.atk import AtkHata
+        self.olaylar.append(("atk_baslat", self.k.hesap))
+        if self.reddet:
+            raise AtkHata("yazma_yetkili_anahtar", "anahtar şu yetkileri taşıyor: trade")
+        return self
+
+    def __exit__(self, *a):
+        self.olaylar.append(("atk_kapat", self.k.hesap))
+
+    def cagir(self, arac, argumanlar=None, alanlar=None):
+        self.olaylar.append(("atk_cagir", arac))
+        return {"data": {"account_get_bills": [FATURA],
+                         "account_get_asset_balance": [{"ccy": "USDT", "bal": "1"}],
+                         "account_get_balance": [{"details": [{"ccy": "USDT", "cashBal": "2"}]}]}.get(arac, [])}
+
+
+class SabahIsi(unittest.TestCase):
+    def setUp(self):
+        self.dizin = Path(tempfile.mkdtemp())
+        self.olaylar = []
+        SahteOkx.olaylar = SahteAtk.olaylar = self.olaylar
+        SahteOkx.hatali_uc, SahteAtk.reddet = None, False
+        self.isaret = self.dizin / "anlatici_calisti.txt"
+        betik = self.dizin / "anlatici.py"
+        betik.write_text(f"open(r'{self.isaret}', 'w').close()\n", encoding="utf-8")
+        for hedef, deger in (("veri.atk.Atk", SahteAtk), ("veri.okx_imzali.OkxTr", SahteOkx),
+                             ("veri.ayar.env_yukle", lambda *a: None)):
+            p = mock.patch(hedef, deger)
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch.dict(os.environ, {"ANLATICI_KOMUT": f'"{sys.executable}" "{betik}"'})
+        p.start()
+        self.addCleanup(p.stop)
+        from veri import ayar
+        self.misafir = ayar.OkxKimlik("misafir", "test-key", "test-secret", "test-pass")
+
+    def tearDown(self):
+        shutil.rmtree(self.dizin, ignore_errors=True)
+
+    def _misafir(self, **k):
+        from calistir import sabah
+        etiketler = []
+        k = {"gun": GUN, "gonder": False, "hafta": False, "kimlik": self.misafir, "db_yolu": self.dizin / "m.db",
+             "anlatici": False, "ilerleme": etiketler.append, **k}
+        return sabah.calistir(**k), etiketler
+
+    def test_misafir_tek_hesap_iki_kez_sayilmaz(self):
+        from calistir import sabah
+
+        class TelegramYok:
+            def __init__(self, *a, **k):
+                raise AssertionError("misafir taraması Telegram'a yazmamalı")
+        with mock.patch("calistir.telegram.Telegram", TelegramYok):
+            sonuc, etiketler = self._misafir()
+        self.assertEqual(etiketler, list(sabah.ILERLEME[:5]))
+        self.assertEqual([o for o in self.olaylar if o[0] == "atk"], [("atk", "misafir", True)])   # tek ATK, yetki zorunlu
+        ilk_okuma = next(i for i, o in enumerate(self.olaylar) if o[0] in ("okx_oku", "atk_cagir"))
+        self.assertLess(self.olaylar.index(("atk_baslat", "misafir")), ilk_okuma)               # önce yetki denetimi
+        cagrilan = {o[1] for o in self.olaylar if o[0] == "atk_cagir"}
+        self.assertFalse(cagrilan & {"account_get_balance", "account_get_asset_balance"})       # borsa:alt okunmadı
+        self.assertEqual((sonuc["kaynak"], sonuc["gonderildi"]), ("kalip", False))
+        self.assertFalse(self.isaret.exists(), "ücretli anlatıcı (ANLATICI_KOMUT) çalışmamalı")
+        db = sqlite3.connect(self.dizin / "m.db")
+        self.addCleanup(db.close)
+        self.assertEqual(db.execute("SELECT hesap, ham_kimlik FROM hareket WHERE kaynak_okuma='account_get_bills'").fetchall(),
+                         [("ana", "account_get_bills:ana:b1")])                                 # bir kez, ana adıyla
+        self.assertEqual(db.execute("SELECT yer, miktar FROM fotograf WHERE gun=?", (GUN,)).fetchall(),
+                         [("borsa:ana", "15")])
+
+    def test_misafir_dosyasi_kapanir(self):
+        self._misafir()
+        (self.dizin / "m.db").rename(self.dizin / "tasindi.db")                 # açık bağlantı kalsaydı Windows'ta düşerdi
+        self.assertFalse((self.dizin / "m.db-wal").exists())
+
+    def test_yazma_yetkili_anahtar_hicbir_sey_okunmadan_durur(self):
+        from veri.atk import AtkHata
+        SahteAtk.reddet = True
+        with self.assertRaises(AtkHata) as e:
+            self._misafir()
+        self.assertEqual(e.exception.kod, "yazma_yetkili_anahtar")
+        self.assertFalse([o for o in self.olaylar if o[0] in ("okx_oku", "atk_cagir")])
+        (self.dizin / "m.db").unlink()                                           # bağlantı kapandı
+
+    def test_misafirde_borsa_okunamazsa_hata_yukselir(self):
+        from veri.okx_imzali import OkxHata
+        SahteOkx.hatali_uc = "/api/v5/asset/withdrawal-history"
+        with self.assertRaises(OkxHata) as e:
+            self._misafir()
+        self.assertEqual(e.exception.kod, "50111")
+
+    def test_misafir_telegram_ya_da_anlatici_isteyemez(self):
+        for k in ({"gonder": True}, {"anlatici": True}):
+            with self.subTest(k=k), self.assertRaises(ValueError):
+                self._misafir(**k)
+        self.assertEqual(self.olaylar, [])
+        self.assertFalse((self.dizin / "m.db").exists())
+
+    def test_sahibin_kosusu_bugunku_gibi(self):
+        from calistir import sabah
+        from veri import ayar
+        gercek = dbm.baglan
+        acilan = []
+
+        def baglan(yol=None):
+            acilan.append(yol)
+            return gercek(":memory:" if yol is None else yol)
+
+        class TelegramHazirDegil:
+            kuruldu = 0
+            hazir = False
+
+            def __init__(self, *a, **k):
+                TelegramHazirDegil.kuruldu += 1
+        with mock.patch("veri.ayar.okx_kimlik", lambda hesap: ayar.OkxKimlik(hesap, f"k-{hesap}", "s", "p")), \
+                mock.patch("veri.db.baglan", baglan), mock.patch("calistir.telegram.Telegram", TelegramHazirDegil):
+            s = sabah.calistir(GUN, gonder=True, hafta=False)
+        self.assertEqual(acilan, [None])                                         # öntanımlı veri dosyası
+        self.assertEqual([o for o in self.olaylar if o[0] == "atk"], [("atk", "alt", False), ("atk", "ana", False)])
+        self.assertIn(("okx", "ana"), self.olaylar)
+        self.assertIn(("atk_cagir", "account_get_balance"), self.olaylar)        # borsa:alt okunur
+        self.assertEqual(TelegramHazirDegil.kuruldu, 1)
+        self.assertTrue(self.isaret.exists(), "sahibin anlatıcısı çalışmalı")
+        self.assertIn("alt hesap defteri: 1 satır, bakiye farkı 0", s["gunluk"])
 
 
 if __name__ == "__main__":

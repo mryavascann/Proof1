@@ -15,19 +15,23 @@ Sunum Buğra'nın bilgisayarından. Bu dosya teknik adım listesidir; konuşma m
 6. Günün mührü (gerçek defterle, **gün başına tek hak**): önce `python -m muhur.muhurle --gun 2026-10-17`
    (kuru), sonra `--gonder`. Çıkan işlem bağlantısını açık tut.
 7. Pano: `python -m pano.sunucu` (telefon gösterilecekse `--host 0.0.0.0`, aynı Wi-Fi'de bilgisayarın yerel IP'si).
+8. Canlı an için ayrı bir terminalde izleyici açık kalsın: `python -m calistir.izle` (bot durunca saniyeler içinde Telegram).
+   Demo botunu insan kurar (OKX uygulaması ya da kendi terminali); proof1 bot kurmaz, durdurmaz, bu komutlar depoda yoktur.
+9. İnternet: hareket kütüphanesi (GSAP) ve yazı tipleri CDN'den gelir; bağlantı yoksa pano hareketsiz ama eksiksiz çizilir.
 
 ## Sahnede (devirdeki 7. bölümle aynı sıra)
 
 | # | Ne gösterilir | Nereden |
 |---|---|---|
 | 1 | Telegram'daki otomatik mesaj, "Panoyu aç" | Telegram Desktop → bağlantı localhost'ta açılır |
-| 2 | Tek akış şeması, gizli mod açık; başlıkta bot cümlesi; dünden bugüne; en çok 3 uyarı | Genel Bakış |
-| 3 | Ethereum bandına dokun → MOCA cümlesi ve dönem notu | Bant paneli |
-| 4 | Canlı an: Buğra botu durdurur → Telegram uyarısı; panoyu yenileyince acil uyarı | Telegram, Genel Bakış |
-| 5 | Yetki ve sınırlar: "Salt okunur" rozeti; çağrıların hepsi salt okunur; bütçe 35 TL tavan | Rozet, Ayrıntılar → Kanıtlar |
-| 6 | ERC-8004 NFT (agentId 263) ve son mühür; "Zincirde doğrula" | Ayrıntılar → Kanıtlar → Mühür; gezgin bağlantıları |
-| 6b | Araştırma izi: hedef → araç → gözlem → karar → sonuç, başarısız adım dahil; OKX kanıt tablosu | Ayrıntılar → Bot incelemesi, Kanıtlar |
-| 7 | Hata davranışı: "tanıyamadım" cümlesi, kalıp cümle etiketi, okunamayan katman | Bant paneli, Ayrıntılar → Hareketler |
+| 2 | Sade sayfa: akış şeması (altın taneler paranın yönü), kırmızı “Bot kaydı tutmuyor” işareti, en çok 3 kart; gizli mod açık | Sade |
+| 3 | Ethereum bandının üstüne gel (diğerleri söner), tıkla → MOCA cümlesi ve dönem notu | Bant çekmecesi |
+| 4 | Canlı an: Buğra botu durdurur → Telegram uyarısı; panoyu yenileyince acil kart | Telegram, Sade |
+| 5 | Yetki ve sınırlar: alt çubukta “Salt okunur”; çağrıların hepsi salt okunur; bütçe 35 TL tavan | Detay → Kanıt ve mühür |
+| 6 | ERC-8004 NFT (agentId 263) ve son mühür; "Zincirde doğrula" | Detay → Kanıt ve mühür; gezgin bağlantıları |
+| 6b | Araştırma izi: hedef → araç → gözlem → karar → sonuç, başarısız adım dahil; OKX kanıt tablosu | Detay → Bot, Kanıt ve mühür |
+| 7 | Hata davranışı: "tanıyamadım" cümlesi, kalıp cümle etiketi, okunamayan katman | Bant çekmecesi, Detay → Hareketler |
+| 8 | Herkes kendi hesabını görür: hesap menüsü → “Kendi hesabını bağla” (yalnız Okuma yetkili anahtar; sahnede anahtar girilmez) | Sağ üst menü |
 
 ## Yedek ekran kaydı (canlı an aksarsa)
 

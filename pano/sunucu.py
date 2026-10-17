@@ -6,9 +6,16 @@
 Uçlar:
   GET  /                      pano sayfası
   GET  /api/rapor?oturum=&gizli=1   rapor verisi (gizli öntanımlı açık)
+  GET  /api/ayrinti?oturum=&gizli=1 ayrıntılı mod
   GET  /api/oturumlar         oturumlar, en yenisi başta
+  GET  /api/muhur-dogrula?gun=      mühür kökünü zincirdekiyle karşılaştırır
   POST /api/isaret            {"adres_etiket", "ag", "sahip": "benim"|"benim_degil"} → yalnız isaret tablosu
-Sunucu hiçbir anahtar okumaz ve istemciye anahtar göndermez.
+Kendi hesabını bağlama (misafir, pano/hesap.py):
+  POST /api/hesap/bagla       {"api_key", "secret_key", "passphrase"} — yalnız bu bilgisayardan; 202 {"hesap", "durum"}
+  GET  /api/hesap/durum?hesap=      taramanın adımı (adim, sira, toplam, bitti, hata)
+  GET  /api/hesaplar          [{"hesap": "ana", "ad": "Ana hesap"}, bitmiş misafir hesapları…]
+Yukarıdaki veri uçları ?hesap=<kimlik> alır (yoksa ya da "ana" ise sahibin dosyası; bilinmeyen kimlik 404).
+Sunucu sahibin anahtarını okumaz; misafirin anahtarı yalnız bellekte durur. İstemciye hiçbir anahtar gönderilmez.
 """
 from __future__ import annotations
 
@@ -25,10 +32,25 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from pano import veri
+from pano.hesap import Hesaplar
 
 KOK_DIZIN = Path(__file__).resolve().parents[1]
 STATIK = Path(__file__).resolve().parent / "static"
 AZAMI_GOVDE = 4096
+MISAFIR_MUHUR = {"agent_id": "", "sozlesme": "", "kimlik": ""}      # misafir dosyası mühürlenmez: mühür iddiası yok
+YEREL_ISTEMCI = ("127.0.0.1", "::1")
+YEREL_KOKEN = ("localhost", "127.0.0.1", "::1")
+HESAP_YOK = {"hata": "hesap bulunamadı"}
+
+
+def _yerel_koken(koken: str | None) -> bool:
+    """Tarayıcı Origin gönderdiyse yalnız bu bilgisayardaki pano sayfası (başka sitenin sayfası anahtar gönderemez)."""
+    if koken is None:
+        return True
+    try:
+        return urlparse(koken).hostname in YEREL_KOKEN
+    except ValueError:
+        return False
 
 
 def muhur_ayari() -> dict:
@@ -46,7 +68,9 @@ def oturumlar(db: sqlite3.Connection) -> list[str]:
     return [r[0] for r in sorted(satirlar, key=anahtar, reverse=True)]
 
 
-def isleyici(db_yolu: Path):
+def isleyici(db_yolu: Path, hesaplar: Hesaplar | None = None):
+    hesaplar = hesaplar if hesaplar is not None else Hesaplar()
+
     class Isleyici(BaseHTTPRequestHandler):
         server_version = "proof1-pano"
 
@@ -90,8 +114,24 @@ def isleyici(db_yolu: Path):
                 print(f"veri okunamadı: {type(e).__name__}", file=sys.stderr)
                 return self._json(503, {"hata": "Veri kaynağı hazırlanmadı."})
 
+        def _hedef(self, sorgu: dict) -> tuple[Path | None, bool]:
+            """(veri dosyası, misafir mi). hesap yoksa, boşsa ya da 'ana' ise sahibin dosyası; misafirde bitmiş
+            taramanın dosyası, yoksa None (404)."""
+            hesap = (sorgu.get("hesap") or [""])[0]
+            if hesap in ("", "ana"):
+                return db_yolu, False
+            return hesaplar.yol(hesap), True
+
         def _api(self, yol: str, sorgu: dict):
-            with closing(sqlite3.connect(db_yolu)) as db:
+            if yol == "/api/hesaplar":
+                return self._json(200, hesaplar.liste())
+            if yol == "/api/hesap/durum":
+                d = hesaplar.durum((sorgu.get("hesap") or [""])[0])
+                return self._json(200, d) if d else self._json(404, HESAP_YOK)
+            hedef, misafir = self._hedef(sorgu)
+            if hedef is None:
+                return self._json(404, HESAP_YOK)
+            with closing(sqlite3.connect(hedef)) as db:
                 if yol == "/api/oturumlar":
                     return self._json(200, oturumlar(db))
                 if yol == "/api/rapor":
@@ -108,11 +148,12 @@ def isleyici(db_yolu: Path):
                     if not oturum:
                         return self._json(404, {"hata": "Veri kaynağı hazırlanmadı."})
                     gizli = (sorgu.get("gizli") or ["1"])[0] != "0"
-                    return self._json(200, veri.ayrinti(db, oturum, gizli=gizli, muhur_ayar=muhur_ayari(),
-                                                        kullanici=os.environ.get("PROOF1_KULLANICI", "bugra")))
+                    return self._json(200, veri.ayrinti(
+                        db, oturum, gizli=gizli, muhur_ayar=MISAFIR_MUHUR if misafir else muhur_ayari(),
+                        kullanici="misafir" if misafir else os.environ.get("PROOF1_KULLANICI", "bugra")))
                 if yol == "/api/muhur-dogrula":
                     gun = (sorgu.get("gun") or [""])[0]
-                    ayar = muhur_ayari()
+                    ayar = MISAFIR_MUHUR if misafir else muhur_ayari()
                     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", gun):
                         return self._json(400, {"hata": "gün YYYY-AA-GG olmalı"})
                     if not (ayar["agent_id"] and ayar["sozlesme"]):
@@ -122,25 +163,60 @@ def isleyici(db_yolu: Path):
                     return self._json(200, veri.muhur_dogrula(db, gun, ayar, rpc))
             return self._json(404, {"hata": "bulunamadı"})
 
-        def do_POST(self):
-            if urlparse(self.path).path != "/api/isaret":
-                return self._json(404, {"hata": "bulunamadı"})
-            uzunluk = int(self.headers.get("Content-Length") or 0)
+        def _govde(self) -> bytes | None:
+            """İstek gövdesi (en çok AZAMI_GOVDE bayt); uzunluk geçersizse ya da sınırı aşarsa None."""
+            try:
+                uzunluk = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return None
             if uzunluk <= 0 or uzunluk > AZAMI_GOVDE:
+                return None
+            return self.rfile.read(uzunluk)
+
+        def do_POST(self):
+            istek = urlparse(self.path)
+            ham = self._govde()    # cevaptan önce okunur: okunmamış gövdeyle kapanan bağlantıyı Windows koparıyor
+            if istek.path == "/api/hesap/bagla":
+                return self._bagla(ham)
+            if istek.path != "/api/isaret":
+                return self._json(404, {"hata": "bulunamadı"})
+            hedef, _ = self._hedef(parse_qs(istek.query))
+            if hedef is None:
+                return self._json(404, HESAP_YOK)
+            if ham is None:
                 return self._json(400, {"hata": "geçersiz istek"})
             try:
-                govde = json.loads(self.rfile.read(uzunluk))
-                with closing(sqlite3.connect(db_yolu)) as db:
+                govde = json.loads(ham)
+                with closing(sqlite3.connect(hedef)) as db:
                     veri.isaret_yaz(db, str(govde["adres_etiket"]), str(govde["ag"]), str(govde["sahip"]))
             except (ValueError, KeyError, TypeError) as e:
                 return self._json(400, {"hata": str(e) if isinstance(e, veri.IsaretHatasi) else "geçersiz istek"})
             return self._json(200, {"durum": "kaydedildi"})
 
+        def _bagla(self, ham: bytes | None):
+            """Kendi hesabını bağla. Anahtar cevaba, iletiye ya da günlüğe girmez; yalnız taramaya bellekte geçer."""
+            if self.client_address[0] not in YEREL_ISTEMCI or not _yerel_koken(self.headers.get("Origin")):
+                return self._json(403, {"hata": "Yalnız bu bilgisayardan bağlanılabilir."})
+            if ham is None:
+                return self._json(400, {"hata": "geçersiz istek"})
+            try:
+                govde = json.loads(ham)
+            except (ValueError, RecursionError):
+                return self._json(400, {"hata": "geçersiz istek"})
+            alanlar = [govde.get(ad) if isinstance(govde, dict) else None for ad in ("api_key", "secret_key", "passphrase")]
+            alanlar = [a.strip() if isinstance(a, str) else "" for a in alanlar]
+            if not all(alanlar):
+                return self._json(400, {"hata": "Üç alan da gerekli."})
+            hesap = hesaplar.bagla(*alanlar)
+            if hesap is None:
+                return self._json(409, {"hata": "Bir tarama zaten sürüyor."})
+            return self._json(202, {"hesap": hesap, "durum": "basladi"})
+
     return Isleyici
 
 
-def kur(db_yolu, host: str, port: int) -> ThreadingHTTPServer:
-    return ThreadingHTTPServer((host, port), isleyici(Path(db_yolu)))
+def kur(db_yolu, host: str, port: int, hesaplar: Hesaplar | None = None) -> ThreadingHTTPServer:
+    return ThreadingHTTPServer((host, port), isleyici(Path(db_yolu), hesaplar))
 
 
 def _env_yukle() -> None:

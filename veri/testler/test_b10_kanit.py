@@ -27,6 +27,21 @@ class Kanit(unittest.TestCase):
         b = o[("ATK", "account_get_bills")]
         self.assertEqual((b["hata"], b["son_hata"]), (1, "504"))
 
+    def test_atk_denetim_kaydi_yazilir(self):
+        from veri.kanit import atk_denetim_kaydi
+
+        class SahteAtk:
+            def cagir(self, arac, arg=None, alanlar=None):
+                assert arac == "trade_get_history"
+                return {"tool": "trade_get_history", "ok": True, "data": {"data": [
+                    {"timestamp": "2026-10-17T12:45:24Z", "tool": "grid_get_orders", "level": "INFO", "durationMs": 372},
+                    {"timestamp": "2026-10-17T12:45:26Z", "tool": "account_get_bills", "level": "INFO", "durationMs": 472}]}}
+        db = dbm.baglan(":memory:")
+        self.assertEqual(atk_denetim_kaydi(SahteAtk(), db), 2)
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM _atk_denetim").fetchone()[0], 2)
+        self.assertEqual(atk_denetim_kaydi(SahteAtk(), db), 2)                       # tekrar yazınca çoğalmaz
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM _atk_denetim").fetchone()[0], 2)
+
     def test_view_var(self):
         db = dbm.baglan(":memory:")
         kanit_ozeti(db)

@@ -3,125 +3,129 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>proof1</title>
+<link rel="icon" type="image/png" href="/static/kus-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..700&family=Chivo+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&display=swap">
 <link rel="stylesheet" href="/static/pano.css">
 </head>
 <body>
+<div class="tane" aria-hidden="true"></div>
+
 <header class="ust">
-  <div class="ust-ic">
-    <span class="logo">proof1</span>
-    <nav class="gezinti" aria-label="Görünüm">
-      <a href="#genel" id="git-genel" aria-current="page">Genel Bakış</a>
-      <a href="#ayrintilar" id="git-ayrinti">Ayrıntılar</a>
-    </nav>
-    <span class="bosluk"></span>
-    <button type="button" class="rozet" id="salt-okunur" aria-expanded="false" aria-controls="salt-okunur-aciklama">
-      <svg class="i" aria-hidden="true"><use href="#i-goz"/></svg>Salt okunur
+  <a class="marka" href="/" aria-label="proof1 ana sayfa">
+    <img src="/static/kus-64.png" alt="" width="30" height="30"><span>proof1</span>
+  </a>
+  <div class="ust-sag">
+    <div class="hesap">
+      <button type="button" class="hap" id="hesap-dugme" aria-haspopup="menu" aria-expanded="false" aria-controls="hesap-menu">
+        <span class="hesap-nokta" aria-hidden="true"></span><span id="hesap-ad">Ana hesap</span>
+        <svg class="i kucuk" aria-hidden="true"><use href="#i-asagi"/></svg>
+      </button>
+      <div class="menu" id="hesap-menu" role="menu" hidden></div>
+    </div>
+    <button type="button" class="ikon-dugme" id="gizli" role="switch" aria-checked="true" title="Gizli mod: bakiyeler ve yüzdeler gizli">
+      <svg class="i" aria-hidden="true"><use href="#i-goz-kapali"/></svg><span class="gizli-yazi">Gizli</span>
     </button>
-    <button type="button" class="anahtar" id="gizli" role="switch" aria-checked="true">
-      <span>Gizli mod</span><span class="ray" aria-hidden="true"></span>
-    </button>
+    <div class="kip" role="tablist" aria-label="Görünüm">
+      <button type="button" role="tab" id="sade-dugme" aria-selected="true">Sade</button>
+      <button type="button" role="tab" id="detay-dugme" aria-selected="false">Detay</button>
+    </div>
   </div>
-  <div class="aciklama-kutu" id="salt-okunur-aciklama" hidden>
-    <strong>proof1 yalnız okur.</strong> OKX TR hesabını ve zincirdeki adresleri okur; emir veremez, para çekemez ya da taşıyamaz,
-    bot kurup durduramaz, öğüt vermez. Yazdığı tek şey kendi kaydı: “Bu adres senin mi?” yanıtın.
-  </div>
-  <div class="kayit-serit" id="kayit-serit" role="note" hidden>KAYIT · bu görüntü önceden alınmıştır, canlı değil</div>
-  <div class="gizli-serit" id="gizli-serit">Gizli mod açık · bakiyeler ve yüzdeler gizli; giren, çıkan ve aktarım tutarları görünür</div>
 </header>
+<div class="kayit-serit" id="kayit-serit" role="note" hidden>KAYIT · önceden alınmış görüntü, canlı değil</div>
 
-<main id="pano" aria-busy="true">
-  <div class="arac">
-    <div class="aralik" role="radiogroup" aria-label="Zaman aralığı" id="aralik">
-      <button type="button" role="radio" aria-checked="false" aria-disabled="true" title="Bu aralık için okuma yok">Bugün</button>
-      <button type="button" role="radio" aria-checked="false" aria-disabled="true" title="Bu aralık için okuma yok">7 gün</button>
-      <button type="button" role="radio" aria-checked="false" aria-disabled="true" title="Bu aralık için okuma yok">30 gün</button>
-      <button type="button" role="radio" aria-checked="true">Tüm dönem</button>
-    </div>
-    <span class="tazelik" id="tazelik">Okunuyor…</span>
-  </div>
-
-  <section class="ana" id="akis" aria-labelledby="ozet">
-    <div class="ozet-kolon" id="ozet-kolon">
-      <p class="ust-etiket" id="donem"></p>
-      <h1 id="ozet">Rapor hazırlanıyor.</h1>
-      <p class="kaynak-not" id="ozet-durum"></p>
-      <p class="durum-hap" id="durum-hap" hidden></p>
-      <p class="kalan" id="kalan" hidden></p>
-      <p class="ipucu">Bir banda dokun: o paranın hikâyesi açılır.</p>
-    </div>
-    <div class="sema-kolon">
+<main id="sade" aria-busy="true">
+  <section class="sahne" id="sahne" aria-labelledby="baslik">
+    <p class="ust-yazi" id="donem">&nbsp;</p>
+    <h1 class="baslik" id="baslik">Paran <em>nereye</em> gitti?</h1>
+    <p class="alt-baslik" id="alt-baslik">proof1, borsadan çıkan parayı zincirde izler. Yalnız okur.</p>
+    <button type="button" class="in bos-bagla" id="bos-bagla"><svg class="i" aria-hidden="true"><use href="#i-arti"/></svg>Kendi hesabını bağla</button>
+    <div class="akis" id="akis">
       <div class="sema" id="sema" role="group" aria-label="Para akış şeması"></div>
-      <p class="okuma" id="okuma" aria-live="polite">Bantların üzerine gelince tutar burada görünür.</p>
-      <details class="tablo-alternatif">
-        <summary>Tablo olarak gör</summary>
-        <div class="tablo-sar"><table id="akis-tablo"></table></div>
-      </details>
+      <canvas id="parcacik" aria-hidden="true"></canvas>
+      <div class="okuma" id="okuma" role="status" aria-live="polite" hidden></div>
     </div>
-    <aside class="panel" id="panel" hidden aria-labelledby="panel-baslik" tabindex="-1">
-      <div class="panel-ust">
-        <h2 id="panel-baslik"></h2>
-        <button type="button" class="kapat" id="panel-kapat">Kapat</button>
-      </div>
-      <div id="panel-icerik"></div>
-    </aside>
+    <div class="kartlar" id="kartlar"></div>
+    <button type="button" class="in" id="detaya-in">Detaya in<svg class="i" aria-hidden="true"><use href="#i-ok"/></svg></button>
   </section>
 
-  <div class="ikinci">
-    <section id="fark" aria-labelledby="fark-baslik">
-      <div class="bolum-ust">
-        <h2 id="fark-baslik">Dünden bugüne</h2>
-        <div class="sekmeler" role="tablist" id="kopru-sekmeler"></div>
-      </div>
-      <p class="not" id="kopru-not"></p>
-      <div id="kopru-icerik"></div>
-    </section>
-    <section id="uyarilar-bolum" aria-labelledby="uyari-baslik">
-      <h2 id="uyari-baslik">Uyarılar</h2>
-      <ul class="uyarilar" id="uyarilar"></ul>
-      <a class="not baglanti" id="tum-uyarilar" href="#ayrintilar" hidden></a>
-    </section>
-  </div>
-
-  <section class="sahiplik-bolum" aria-labelledby="sahiplik-baslik" id="sahiplik-bolum" hidden>
-    <h2 id="sahiplik-baslik">Bu adres senin mi?</h2>
-    <p class="not">Yanıtın yalnız proof1'ın kendi kaydına yazılır; para taşınmaz.</p>
-    <div class="sahiplik" id="sahiplik"></div>
-  </section>
+  <aside class="cekmece" id="panel" hidden tabindex="-1" aria-labelledby="panel-baslik">
+    <div class="cekmece-ust">
+      <h2 id="panel-baslik"></h2>
+      <button type="button" class="ikon-dugme" id="panel-kapat" aria-label="Kapat"><svg class="i" aria-hidden="true"><use href="#i-kapat"/></svg></button>
+    </div>
+    <div id="panel-icerik"></div>
+  </aside>
 </main>
 
-<main id="ayrinti" hidden aria-busy="false">
-  <div class="arac">
-    <div class="sekmeler buyuk" role="tablist" id="ayrinti-sekmeler">
-      <button type="button" role="tab" data-sekme="hareketler" aria-selected="true">Hareketler</button>
+<main id="detay" hidden aria-busy="false">
+  <div class="detay-ust">
+    <nav class="sekmeler" role="tablist" id="ayrinti-sekmeler" aria-label="Ayrıntılar">
+      <button type="button" role="tab" data-sekme="ozet" aria-selected="true">Özet</button>
       <button type="button" role="tab" data-sekme="uyarilar" aria-selected="false">Uyarılar</button>
-      <button type="button" role="tab" data-sekme="bot" aria-selected="false">Bot incelemesi</button>
-      <button type="button" role="tab" data-sekme="kanitlar" aria-selected="false">Kanıtlar</button>
-    </div>
-    <span class="tazelik" id="ayrinti-durum"></span>
+      <button type="button" role="tab" data-sekme="bot" aria-selected="false">Bot</button>
+      <button type="button" role="tab" data-sekme="hareketler" aria-selected="false">Hareketler</button>
+      <button type="button" role="tab" data-sekme="kanitlar" aria-selected="false">Kanıt ve mühür</button>
+    </nav>
+    <span class="soluk" id="ayrinti-durum"></span>
   </div>
-  <section id="sekme-hareketler" class="sekme-govde" role="tabpanel"></section>
+  <section id="sekme-ozet" class="sekme-govde" role="tabpanel"></section>
   <section id="sekme-uyarilar" class="sekme-govde" role="tabpanel" hidden></section>
   <section id="sekme-bot" class="sekme-govde" role="tabpanel" hidden></section>
+  <section id="sekme-hareketler" class="sekme-govde" role="tabpanel" hidden></section>
   <section id="sekme-kanitlar" class="sekme-govde" role="tabpanel" hidden></section>
 </main>
 
 <footer class="alt">
-  <span>proof1 yalnız okur. Rakamları kod sayar.</span>
-  <span id="durum-satiri"></span>
+  <span class="kilit"><svg class="i kucuk" aria-hidden="true"><use href="#i-kilit"/></svg>Salt okunur · emir vermez, para taşımaz</span>
+  <span id="muhur-rozet" class="muhur-rozet" hidden></span>
+  <span class="soluk" id="durum-satiri"></span>
 </footer>
+
+<div class="perde" id="bagla-perde" hidden>
+  <div class="bagla" role="dialog" aria-modal="true" aria-labelledby="bagla-baslik">
+    <button type="button" class="ikon-dugme kapat" id="bagla-kapat" aria-label="Kapat"><svg class="i" aria-hidden="true"><use href="#i-kapat"/></svg></button>
+    <img class="bagla-kus" src="/static/kus.jpg" alt="" width="72" height="72">
+    <h2 id="bagla-baslik">Kendi hesabını gör</h2>
+    <ol class="adimlar">
+      <li><b>OKX TR → API</b> bölümünde yeni anahtar aç. İzin: yalnız <b>Okuma</b>.</li>
+      <li>Üç değeri aşağıya yapıştır.</li>
+      <li>proof1 tarar, panon çizilir.</li>
+    </ol>
+    <form id="bagla-form" autocomplete="off" novalidate>
+      <label>API anahtarı<input name="api_key" type="password" autocomplete="off" spellcheck="false" required></label>
+      <label>Gizli anahtar<input name="secret_key" type="password" autocomplete="off" spellcheck="false" required></label>
+      <label>Parola<input name="passphrase" type="password" autocomplete="off" spellcheck="false" required></label>
+      <p class="guven"><svg class="i kucuk" aria-hidden="true"><use href="#i-kilit"/></svg>Anahtar bu bilgisayardan çıkmaz, diske yazılmaz. İşlem ya da çekim yetkisi olan anahtar reddedilir.</p>
+      <p class="hata" id="bagla-hata" role="alert" hidden></p>
+      <button type="submit" class="birincil">Tara</button>
+    </form>
+    <div class="ilerleme" id="bagla-ilerleme" hidden>
+      <ol id="ilerleme-adimlar"></ol>
+      <p class="soluk kucuk-yazi">Pencereyi kapatabilirsin; tarama sürer, bitince panon açılır.</p>
+    </div>
+  </div>
+</div>
 <div class="sr" aria-live="polite" id="duyuru"></div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-goz" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
-  <symbol id="i-uyari" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8v5M12 16v.01"/></symbol>
-  <symbol id="i-tamam" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
-  <symbol id="i-eksik" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke-dasharray="2 3"/><path d="M8.5 12h7"/></symbol>
-  <symbol id="i-gelen" viewBox="0 0 24 24"><path d="M17 7 7 17M7 9v8h8"/></symbol>
+  <symbol id="i-goz-kapali" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+  <symbol id="i-asagi" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-kapat" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-kilit" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-uyari" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17v.01"/></symbol>
+  <symbol id="i-tamam" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-eksik" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="2 3"/><path d="M8.5 12h7"/></symbol>
+  <symbol id="i-arti" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-muhur" viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
 </svg>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js"></script>
 <script src="/static/pano.js"></script>
 </body>
 </html>

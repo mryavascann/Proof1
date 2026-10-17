@@ -36,6 +36,9 @@ UYARI_METNI = {"supheli_token": "Şüpheli görünen token hareketi görüldü; 
                "aciklanamayan": "Defterde açıklanamayan bir fark görüldü.",
                "okunamayan_ag": "Bir ağda yalnız çekim görülebiliyor; sonrası okunamadı.",
                "taninmadi": "Kaynağı tanınmayan bir giriş görüldü."}
+UYARI_BASLIGI = {"bot_uyusmazlik": "Bot kaydı tutmuyor", "adres_zehirleme": "Adres zehirleme şüphesi",
+                 "supheli_token": "Şüpheli token", "aciklanamayan": "Açıklanamayan fark",
+                 "okunamayan_ag": "Okunamayan ağ", "taninmadi": "Tanınmayan giriş", "defter_farki": "Defter farkı"}
 AYLAR = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım",
          "Aralık"]
 
@@ -235,15 +238,37 @@ def _uyari_metni(db, oturum: str, tur: str, nolar: list, olgu_onbellek: dict) ->
     return UYARI_METNI.get(tur, "Bu uyarı için cümle yok; ayrıntı defterde.")
 
 
+def uyari_basligi(tur: str) -> str:
+    """Sade sayfadaki kartın kısa başlığı (en çok 28 harf)."""
+    return UYARI_BASLIGI.get(tur, "Uyarı")
+
+
+def _kart_sayilari(db, oturum: str, tur: str, nolar: list, olgu_onbellek: dict) -> dict:
+    """Bot kartı için iki sayı: borsanın kaydı ve hesaba dönen paraya göre sonuç. Olgudan aynen alınır."""
+    if tur != "bot_uyusmazlik":
+        return {}
+    if oturum not in olgu_onbellek:
+        olgu_onbellek[oturum] = {o.no: o for o in olgulari_oku(db, oturum)}
+    o = next((olgu_onbellek[oturum][n] for n in nolar if n in olgu_onbellek[oturum]), None)
+    if o is None or o.gizli:
+        return {}
+    a = o.alanlar
+    eksi = lambda m: str(m).replace("-", "−")           # tipografik eksi; rakamlar değişmez
+    return {k: v for k, v in (("kayit", eksi(a.get("kayit_sonuc", ""))), ("gercek", eksi(a.get("gercek_sonuc", ""))),
+                              ("bot", a.get("bot")), ("durdurma", a.get("durdurma"))) if v}
+
+
 def _uyarilar(db, oturum: str) -> dict:
     satirlar = _uyari_satirlari(db, oturum)
     onbellek: dict = {}
     liste = []
     for u_oturum, tur, onem, olg, zaman in satirlar[:3]:
         nolar = json.loads(olg or "[]")
-        liste.append({"tur": tur, "onem": onem, "zaman": zaman, "olgular": nolar,
-                      "metin": _uyari_metni(db, u_oturum, tur, nolar, onbellek)})
-    return {"liste": liste, "toplam": len(satirlar)}
+        liste.append({"tur": tur, "onem": onem, "zaman": zaman, "olgular": nolar, "baslik": uyari_basligi(tur),
+                      "metin": _uyari_metni(db, u_oturum, tur, nolar, onbellek),
+                      **_kart_sayilari(db, u_oturum, tur, nolar, onbellek)})
+    return {"liste": liste, "toplam": len(satirlar),
+            "acil": sum(1 for r in satirlar if r[2] == "acil")}
 
 
 def _uyari_gruplari(db, oturum: str) -> list[dict]:
@@ -255,6 +280,7 @@ def _uyari_gruplari(db, oturum: str) -> list[dict]:
         if g is None:
             nolar = json.loads(olg or "[]")
             g = gruplar[(tur, onem)] = {"tur": tur, "onem": onem, "sayi": 0, "son": zaman, "olgular": nolar,
+                                        "baslik": uyari_basligi(tur),
                                         "metin": _uyari_metni(db, u_oturum, tur, nolar, onbellek),
                                         "canli": u_oturum.startswith("canli-")}
         g["sayi"] += 1
@@ -373,7 +399,8 @@ def _iz(db, oturum: str) -> tuple[str | None, list[dict]]:
 
 def _kanit(db, oturum: str) -> dict:
     if not _tablo_var(db, "cagri"):
-        return {"gruplar": [], "hatalar": [], "toplam": 0, "salt_okunur_hepsi": True, "denetim_kaydi": []}
+        return {"gruplar": [], "hatalar": [], "toplam": 0, "salt_okunur_hepsi": True, "denetim_kaydi": [],
+                "bildirim": {"cagri": 0, "hata": 0}}
     gruplar: dict = {}
     hatalar = []
     for kaynak, ad, sure, alanlar, sonuc, kod, salt, satir, zaman, param in db.execute(
@@ -390,10 +417,14 @@ def _kanit(db, oturum: str) -> dict:
             g["hata"] += 1
             hatalar.append({"kaynak": kaynak, "ad": ad, "kod": kod or "hata", "sure_ms": sure, "zaman": zaman,
                             "parametreler": param})
-    liste = []
+    liste, bildirim = [], {"cagri": 0, "hata": 0}
     for g in gruplar.values():
         s = g.pop("_sure")
         g.update(ort_ms=int(sum(s) / len(s)), en_cok_ms=max(s), alanlar=sorted(g["alanlar"]))
+        if g["kaynak"] == "Telegram":          # proof1'ın kendi botuna bildirim: borsaya yazmaz, salt okuma hesabına girmez
+            bildirim["cagri"] += g["cagri"]
+            bildirim["hata"] += g["hata"]
+            continue
         liste.append(g)
     oncelik = {"OKX TR": 0, "ATK": 1, "OnchainOS": 2}
     liste.sort(key=lambda g: (oncelik.get(g["kaynak"], 9), -g["cagri"], g["ad"]))
@@ -402,7 +433,7 @@ def _kanit(db, oturum: str) -> dict:
         denetim = [{"zaman": z, "arac": a, "seviye": s, "sure_ms": ms} for z, a, s, ms in db.execute(
             "SELECT zaman, arac, seviye, sure_ms FROM _atk_denetim ORDER BY zaman DESC LIMIT 20")]
     return {"gruplar": liste, "hatalar": hatalar[-10:], "toplam": sum(g["cagri"] for g in liste),
-            "salt_okunur_hepsi": all(g["salt_okunur"] for g in liste), "denetim_kaydi": denetim}
+            "salt_okunur_hepsi": all(g["salt_okunur"] for g in liste), "denetim_kaydi": denetim, "bildirim": bildirim}
 
 
 def _muhur(db, oturum: str, ayar: dict) -> dict:

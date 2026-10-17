@@ -75,13 +75,27 @@ Sabah işi `ANLATICI_KOMUT` doluysa anlatıcıyı çalıştırır (`{oturum}` ye
 
 ```bash
 python -m calistir.sabah                  # 1. sabah işi: rapor kendiliğinden gelir (Telegram + “Panoyu aç”)
-python -m pano.sunucu                     # 2. pano: tek görsel, dünle karşılaştırma, en çok üç uyarı (gizli mod açık)
+python -m pano.sunucu                     # 2. pano: sade ilk sayfa (akış şeması + en çok üç kart), “Detay” ile ayrıntı
 python -m calistir.izle                   # 3. canlı an: bot durdurulunca saniyeler içinde Telegram + araştırma izi
 python -m veri.kanit sabah-2026-10-17     # 4. OKX kanıtı: çağrılan araçlar, süre, alanlar, “salt okunur”
 python -m muhur.muhurle --gun 2026-10-17  # 5. mühür kökü; Fuji gezgininde ERC-8004 NFT ve mühür işlemi
 ```
 
 Bot sahnede insan tarafından durdurulur (proof1 bot kurmaz, durdurmaz); demo botu alt hesapta önceden kurulur.
+
+## Pano
+
+İlk sayfa sade: tek bir akış şeması (OKX TR → Sen → ağlar; bant kalınlığı çekim anındaki dolar karşılığı, altın taneler paranın yönü), sorun varsa kırmızı işaret ve en çok üç kart. Sağ üstteki **Detay** düğmesi ayrıntıyı açar: Özet (dün → bugün, “bu adres senin mi?”), Uyarılar, Bot, Hareketler, Kanıt ve mühür. Hareket GSAP 3.15 ile yapılır (CDN'den; çevrimdışıyken sayfa hareketsiz ama eksiksiz çizilir), `prefers-reduced-motion` açıksa hareket yoktur. Sayılar her zaman koddan gelir; giriş animasyonu yalnız o sayıya sayarak varır.
+
+## Kendi hesabını gör
+
+Pano yalnız bir kişinin hesabına bağlı değildir. Herkes proof1'ı kendi bilgisayarında çalıştırır ve kendi hesabını bağlar:
+
+1. OKX TR → API bölümünde yeni anahtar aç; izin olarak yalnız **Okuma** seç.
+2. Panoda sağ üstteki hesap menüsünden **Kendi hesabını bağla**'ya tıkla, üç değeri (anahtar, gizli anahtar, parola) yapıştır.
+3. proof1 tarar (anahtar denetimi → borsa → zincirler → dolar karşılıkları → botlar), bitince pano o hesapla açılır; menüden hesaplar arasında geçilir.
+
+Anahtar yalnız bu bilgisayardaki pano sunucusuna gider (yalnız `localhost`'tan kabul edilir), diske, veritabanına ya da kayda yazılmaz, tarama bitince bellekten atılır; form gönderilince boşaltılır, tarayıcıda saklanmaz. İşlem ya da çekim yetkisi olan anahtar okumaya başlamadan reddedilir (`account_get_config.perm`), ATK yine `--read-only` kipindedir. Her hesabın taraması ayrı veritabanına yazılır (`data/hesaplar/<kimlik>.db`, depoya girmez); bu taramalar Telegram'a mesaj göndermez ve ücretli anlatıcıyı çalıştırmaz (kalıp cümleler).
 
 ## Örnek veri ve canlı veri
 

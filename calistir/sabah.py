@@ -20,6 +20,9 @@ from veri.kayit import iso
 
 IST = timezone(timedelta(hours=3))
 GUN_MS = 24 * 3600 * 1000
+# Misafir taramasının adımları (panoda /api/hesap/durum). Son adımı ("Hazır") taramayı başlatan söyler.
+ILERLEME = ("Anahtar denetleniyor", "Borsa okunuyor", "Zincirler taranıyor", "Dolar karşılıkları", "Botlar ve köprü",
+            "Hazır")
 
 
 @dataclass
@@ -119,8 +122,10 @@ def _geri_sar(db, foto: dict, hedef_ms: int, simdi_ms: int) -> dict:
     return sonuc
 
 
-def veriyi_topla(db, oturum: str, okx, atk, gunluk: list, taze: bool = False):
-    """Borsa + zincir okuma ve deftere yazma (sabah işi ve canlı izleyici ortak kullanır)."""
+def veriyi_topla(db, oturum: str, okx, atk, gunluk: list, taze: bool = False, tek_hesap: bool = False, ilerleme=None):
+    """Borsa + zincir okuma ve deftere yazma (sabah işi ve canlı izleyici ortak kullanır).
+    tek_hesap: okx ile atk aynı hesabın anahtarı (misafir). İşlem hesabının defteri bir kez ve 'ana' adıyla okunur;
+    ikinci ATK açılmaz (aynı satırlar 'alt' ve 'ana' diye iki kez sayılmasın)."""
     from veri.adres import adresleri_cikar, cekim_dolar_guncelle, yaz as adres_yaz
     from veri.borsa import cekimler, fonlama_defteri, tamamlanan, yatirmalar
     from veri.defter import (alt_defteri, cekim_hareketleri, defter_yaz, fonlama_hareketleri, hareketlere, yaz as hyaz,
@@ -135,22 +140,25 @@ def veriyi_topla(db, oturum: str, okx, atk, gunluk: list, taze: bool = False):
         hyaz(db, fonlama_hareketleri(fonlama_defteri(okx)))
     except Exception as e:
         gunluk.append(f"fonlama defteri okunamadı ({type(e).__name__})")
-    s = alt_defteri(atk)
+    s = alt_defteri(atk, hesap="ana" if tek_hesap else "alt")
     z = zincirle(s)
     hyaz(db, hareketlere(s))
     defter_yaz(db, s)
-    gunluk.append(f"alt hesap defteri: {len(s)} satır, bakiye farkı {len(z.farklar)}")
+    gunluk.append(f"{'işlem hesabı' if tek_hesap else 'alt hesap'} defteri: {len(s)} satır, bakiye farkı {len(z.farklar)}")
     # Ana hesabın işlem hesabı (fonlama → işlem aktarımlarının karşı tarafı): ATK'nın ana profiliyle
-    try:
-        from veri.atk import Atk
-        with Atk(ayar.okx_kimlik("ana"), db, oturum) as atk_ana:
-            sa = alt_defteri(atk_ana, hesap="ana")
-        za = zincirle(sa)
-        hyaz(db, hareketlere(sa))
-        defter_yaz(db, sa)
-        gunluk.append(f"ana hesap işlem defteri: {len(sa)} satır, bakiye farkı {len(za.farklar)}")
-    except Exception as e:
-        gunluk.append(f"ana hesap işlem defteri okunamadı ({type(e).__name__})")
+    if not tek_hesap:                                   # tek hesapta yukarıda okundu
+        try:
+            from veri.atk import Atk
+            with Atk(ayar.okx_kimlik("ana"), db, oturum) as atk_ana:
+                sa = alt_defteri(atk_ana, hesap="ana")
+            za = zincirle(sa)
+            hyaz(db, hareketlere(sa))
+            defter_yaz(db, sa)
+            gunluk.append(f"ana hesap işlem defteri: {len(sa)} satır, bakiye farkı {len(za.farklar)}")
+        except Exception as e:
+            gunluk.append(f"ana hesap işlem defteri okunamadı ({type(e).__name__})")
+    if ilerleme:
+        ilerleme(ILERLEME[2])
     kartlar = adresleri_cikar(cek, yat, TxOkuyucu(db, oturum).gonderen)
     adres_yaz(db, kartlar, cek)
     gunluk.append(f"adres: {len(kartlar)} ({sum(1 for k in kartlar if k.tahmin == 'benim')} büyük olasılıkla senin)")
@@ -159,7 +167,26 @@ def veriyi_topla(db, oturum: str, okx, atk, gunluk: list, taze: bool = False):
     return cek, yat, cekim_dolar_guncelle
 
 
-def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = None, taze: bool = False) -> dict:
+def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = None, taze: bool = False,
+             kimlik=None, db_yolu=None, anlatici: bool = True, ilerleme=None) -> dict:
+    """Öntanımlılar sahibin sabah işidir: .env'deki iki hesap, öntanımlı veri dosyası, Telegram, anlatıcı.
+
+    Misafir (panodan bağlanan tek hesap): kimlik=OkxKimlik, db_yolu=ayrı dosya, gonder=False, anlatici=False.
+    Anahtarın yetkisi okunamazsa ya da işlem/çekim yetkisi varsa ATK açılırken, hiçbir hesap verisi okunmadan durur;
+    borsa okunamazsa hata yükselir (boş dosyada geri düşülecek eski okuma yok). ilerleme(etiket): ILERLEME adımları.
+    db_yolu verilirse bağlantı dönüşte kapanır (dosya sonra taşınabilsin ya da silinebilsin)."""
+    if kimlik is not None and (gonder or anlatici):
+        raise ValueError("misafir taraması Telegram'a yazmaz ve ücretli anlatıcıyı çalıştırmaz")
+    ayar.env_yukle()
+    db = dbm.baglan(db_yolu)
+    try:
+        return _calistir(db, gun, gonder, hafta, taze, kimlik, anlatici, ilerleme or (lambda _etiket: None))
+    finally:
+        if db_yolu is not None:
+            db.close()
+
+
+def _calistir(db, gun, gonder, hafta, taze, kimlik, anlatici, ilerleme) -> dict:
     from veri.atk import Atk
     from veri.bot import botlari_karsilastir
     from veri.defter import dolar_doldur
@@ -170,26 +197,32 @@ def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = N
     from veri.olgu import olgulari_kur
     from calistir.telegram import Telegram
 
-    ayar.env_yukle()
-    db = dbm.baglan()
     simdi_ms = int(time.time() * 1000)
     gun = gun or datetime.now(IST).strftime("%Y-%m-%d")
     bit_ms = int(datetime.strptime(gun, "%Y-%m-%d").replace(hour=9, tzinfo=IST).timestamp() * 1000)
     bas_ms = bit_ms - GUN_MS
     oturum = f"sabah-{gun}"
     gunluk: list[str] = []
-    okx = OkxTr(ayar.okx_kimlik("ana"), db, oturum)
-    with Atk(ayar.okx_kimlik("alt"), db, oturum) as atk:
+    tek = kimlik is not None                       # misafir: tek hesap, iki rolü de aynı anahtar okur
+    okx = OkxTr(kimlik if tek else ayar.okx_kimlik("ana"), db, oturum)
+    ilerleme(ILERLEME[0])
+    with Atk(kimlik if tek else ayar.okx_kimlik("alt"), db, oturum, yetki_zorunlu=tek) as atk:
+        ilerleme(ILERLEME[1])
         # Her adım ayrı: biri düşerse (ör. tr.okx.com bağlantıyı keserse) eldeki defterle devam edilir ve mesaj yine gider.
-        if adim(gunluk, "borsa/zincir okuması", lambda: veriyi_topla(db, oturum, okx, atk, gunluk, taze)) is None:
+        if tek:
+            veriyi_topla(db, oturum, okx, atk, gunluk, taze, tek_hesap=True, ilerleme=ilerleme)
+        elif adim(gunluk, "borsa/zincir okuması", lambda: veriyi_topla(db, oturum, okx, atk, gunluk, taze)) is None:
             gunluk.append("veritabanındaki son okuma kullanılıyor")
         from veri.adres import cekim_dolar_guncelle
+        ilerleme(ILERLEME[3])
         fiyatci = Fiyatci(atk, db)
         n = adim(gunluk, "dolar karşılığı", lambda: dolar_doldur(db, fiyatci, en_cok=20000))
         adim(gunluk, "adres dolar toplamı", lambda: cekim_dolar_guncelle(db))
         gunluk.append(f"dolar karşılığı: {n or 0} satır")
-        foto = adim(gunluk, "borsa fotoğrafı", lambda: _geri_sar(db, borsa_bakiyeleri(okx, atk), bit_ms, simdi_ms)
-                    if simdi_ms > bit_ms else borsa_bakiyeleri(okx, atk)) or {}
+        ilerleme(ILERLEME[4])
+        atk_alt = None if tek else atk              # tek hesapta borsa:ana işlem hesabını da kapsar (iki kez sayılmaz)
+        foto = adim(gunluk, "borsa fotoğrafı", lambda: _geri_sar(db, borsa_bakiyeleri(okx, atk_alt), bit_ms, simdi_ms)
+                    if simdi_ms > bit_ms else borsa_bakiyeleri(okx, atk_alt)) or {}
         adim(gunluk, "fotoğraf kaydı", lambda: fotografi_yaz(db, gun, iso(datetime.fromtimestamp(bit_ms / 1000, tz=timezone.utc)),
                                                             {**foto, **cuzdan_seviyeleri(db, bit_ms)}, fiyatci.dolar, bit_ms))
         dun = (datetime.strptime(gun, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -198,6 +231,8 @@ def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = N
         if not dunku:
             gunluk.append("dünkü fotoğraf yok: borsa seviyesi defterden geri hesaplandı")
         kopru = adim(gunluk, "köprü", lambda: kopru_kur(db, gun, bas_ms, bit_ms, fiyatci.dolar, fotolar))
+        from veri.kanit import atk_denetim_kaydi
+        adim(gunluk, "ATK denetim kaydı", lambda: atk_denetim_kaydi(atk, db))   # panoda “denetim kaydı” (trade_get_history)
         botlar = adim(gunluk, "bot karşılaştırması", lambda: [b for b in botlari_karsilastir(atk, db)
                                                                if b.durus_ms and bas_ms < b.durus_ms <= bit_ms]) or []
         kopru_olgu = adim(gunluk, "olgular", lambda: olgulari_kur(db, oturum, gun, kopru, botlar, (bas_ms, bit_ms), fiyatci.dolar))
@@ -212,13 +247,14 @@ def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = N
                 kopruyu_yaz(db, f"hafta-{gun}", h_kopru)
                 gunluk.append("haftalık özet hazırlandı")
             adim(gunluk, "haftalık özet", haftalik)
+    komut = ayar.al("ANLATICI_KOMUT") if anlatici else ""          # anlatıcı yoksa kalıp cümle
     if gonder:
         t = Telegram(db=db, oturum=oturum)
         if not t.hazir:
             gunluk.append("Telegram gönderilmedi: eksik " + ", ".join(ayar.eksikler(["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"])))
-        m, gonderildi = hazir_gonder(db, oturum, t, ayar.al("ANLATICI_KOMUT"), ayar.al("PANO_URL", "http://localhost:3003"))
+        m, gonderildi = hazir_gonder(db, oturum, t, komut, ayar.al("PANO_URL", "http://localhost:3003"))
     else:
-        m, gonderildi = mesaj_hazirla(db, oturum, ayar.al("ANLATICI_KOMUT"), ayar.al("PANO_URL", "http://localhost:3003")), False
+        m, gonderildi = mesaj_hazirla(db, oturum, komut, ayar.al("PANO_URL", "http://localhost:3003")), False
     return {"oturum": oturum, "mesaj": m.metin, "kaynak": m.kaynak, "baglanti": m.baglanti, "gonderildi": gonderildi,
             "olgu": db.execute("SELECT COUNT(*) FROM olgu WHERE oturum=?", (oturum,)).fetchone()[0],
             "uyari": db.execute("SELECT COUNT(*) FROM uyari WHERE oturum=?", (oturum,)).fetchone()[0], "gunluk": gunluk}

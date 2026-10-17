@@ -49,7 +49,8 @@ def yazma_araci_mi(ad: str) -> bool:
 
 
 class Atk:
-    def __init__(self, kimlik: OkxKimlik, db=None, oturum: str | None = None, yetki_denetimi: bool = True):
+    def __init__(self, kimlik: OkxKimlik, db=None, oturum: str | None = None, yetki_denetimi: bool = True,
+                 yetki_zorunlu: bool = False):
         self.k = kimlik
         self.db = db
         self.oturum = oturum
@@ -58,6 +59,8 @@ class Atk:
         self._no = 0
         self.araclar: list[str] = []
         self.yetki_denetimi = yetki_denetimi
+        # Misafir anahtarı (panodan bağlanan): yetki okunamazsa da reddedilir. Sahibinkinde geçici hata işi kesmez.
+        self.yetki_zorunlu = yetki_zorunlu
         self.yetki = "bilinmiyor"         # OKX'in bildirdiği anahtar yetkisi (kanıt panelinde gösterilir)
 
     # --- süreç ---
@@ -76,6 +79,10 @@ class Atk:
             ortam["OKX_API_KEY"] = self.k.api_key
             ortam["OKX_SECRET_KEY"] = self.k.secret_key
             ortam["OKX_PASSPHRASE"] = self.k.passphrase
+            if self.k.profil_dizini:
+                # Anahtar yine ortamda; ATK'nın ev dizini ayrı (misafir: boş geçici dizin). Sahibin ~/.okx ayarı
+                # okunmaz, denetim kaydı (trade_get_history) iki hesap arasında karışmaz.
+                ortam["USERPROFILE"] = ortam["HOME"] = str(self.k.profil_dizini)
         return ortam
 
     def _oku(self):
@@ -123,6 +130,7 @@ class Atk:
         if yazanlar:
             self.kapat()
             raise AtkHata("yazma_araci", ",".join(yazanlar))
+        son_hata = None
         if self.yetki_denetimi and "account_get_config" in self.araclar:
             # İkinci kilit: sunucu salt okuma kipinde olsa bile anahtarın kendisi yazamamalı.
             for _ in range(2):
@@ -130,7 +138,8 @@ class Atk:
                     c = satirlar(self.cagir("account_get_config", {}, alanlar=["perm"]))
                     self.yetki = str(c[0].get("perm") or "bilinmiyor") if c else "bilinmiyor"
                     break
-                except AtkHata:
+                except AtkHata as e:
+                    son_hata = e
                     time.sleep(1)                       # geçici hata: bir kez daha; bilinmiyorsa çalışmayı kesmez
             if self.yetki != "bilinmiyor":
                 try:
@@ -138,6 +147,9 @@ class Atk:
                 except AtkHata:
                     self.kapat()
                     raise
+        if self.yetki_denetimi and self.yetki_zorunlu and self.yetki == "bilinmiyor":
+            self.kapat()                                # misafir: yetkisi doğrulanamayan anahtarla hiçbir şey okunmaz
+            raise son_hata or AtkHata("yetki_okunamadi", "anahtarın yetkisi okunamadı")
         return self
 
     def kapat(self):
