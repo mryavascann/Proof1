@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from anlatim.denetim import Olgu
 
-ONCELIK = ("bot_uyusmazlik", "taninmadi", "okunamayan_ag", "supheli", "kopru", "cekim_ozet", "moca_takas", "takas",
+ONCELIK = ("bot_uyusmazlik", "kopru_ozet", "taninmadi", "okunamayan_ag", "supheli", "kopru", "cekim_ozet", "moca_takas", "takas",
            "cekim", "gonderim", "moca_stake", "bot_tutuyor", "ag_payi")
 
 
@@ -60,6 +60,9 @@ KALIPLAR = {
     "bot_uyusmazlik": lambda a: (f"{a['bot']} botunun kaydı {a['kayit_sonuc']} diyor; "
                                  f"hesabına dönen paraya göre sonuç {a['gercek_sonuc']}."),
     "bot_tutuyor": lambda a: f"{a['bot']} botunun kaydı hesabına dönen parayla tutuyor: {a['gercek_sonuc']}.",
+    "kopru_ozet": lambda a: f"{a['donem'].capitalize()}: {a['ad']} {a['miktar']} {a['yon']}.",
+    "defter_farki": lambda a: (f"{a['ag']} ağında {a['adres']} adresinin bakiyesi defterle kapanmıyor; "
+                               f"açıklanamayan fark {a['fark']}."),
     "okunamayan_ag": lambda a: f"{a['ag']} ağında yalnız çekimi görüyorum; bakiye ve sonraki hareketler okunamadı.",
 }
 

@@ -7,6 +7,7 @@ import sqlite3
 import stat
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from muhur import kok
@@ -17,7 +18,7 @@ GUN = "2026-10-11"
 
 
 def beklenen_satir():
-    with sqlite3.connect(ORNEK_DB) as db:
+    with closing(sqlite3.connect(ORNEK_DB)) as db:
         return db.execute("SELECT count(*) FROM hareket WHERE zaman >= '2026-10-10T21:00:00' "
                           "AND zaman < '2026-10-11T21:00:00'").fetchone()[0]
 
@@ -49,7 +50,7 @@ class Kanonik(unittest.TestCase):
 
 class GunSatirlari(unittest.TestCase):
     def test_istanbul_gunu_ve_sira(self):
-        with sqlite3.connect(ORNEK_DB) as db:
+        with closing(sqlite3.connect(ORNEK_DB)) as db:
             satirlar = kok.gun_satirlari(db, GUN)
         self.assertEqual(len(satirlar), beklenen_satir())
         self.assertGreater(len(satirlar), 0)
@@ -77,7 +78,8 @@ class Tuzlar(unittest.TestCase):
         self.assertEqual(t2["a"], t1["a"])
         self.assertEqual(t2["b"], t1["b"])
         self.assertIn("c", t2)
-        self.assertEqual(stat.S_IMODE(os.stat(self.yol).st_mode), 0o600)
+        if os.name != "nt":  # Windows POSIX izinlerini desteklemez; orada dosya data/ altında, depoya girmez
+            self.assertEqual(stat.S_IMODE(os.stat(self.yol).st_mode), 0o600)
 
 
 class Merkle(unittest.TestCase):
@@ -100,7 +102,7 @@ class GunKoku(unittest.TestCase):
     def setUp(self):
         self.dizin = tempfile.mkdtemp()
         self.tuz_yolu = Path(self.dizin) / "tuzlar.json"
-        with sqlite3.connect(ORNEK_DB) as db:
+        with closing(sqlite3.connect(ORNEK_DB)) as db:
             self.satirlar = kok.gun_satirlari(db, GUN)
 
     def tearDown(self):
@@ -145,7 +147,7 @@ class MuhurTablosu(unittest.TestCase):
     def test_sozlesme_sutunlari(self):
         with tempfile.TemporaryDirectory() as d:
             yol = Path(d) / "x.db"
-            with sqlite3.connect(yol) as db:
+            with closing(sqlite3.connect(yol)) as db:
                 kok.muhur_yaz(db, {"gun": GUN, "kok": "0x" + "ab" * 32, "onceki_kok": "0x" + "00" * 32,
                                    "islem_kimligi": "0xdead", "agent_id": "263", "ag": "fuji",
                                    "sozlesme": "0x7C5aB869e8d972885673f19B848084279AAD0d48"})

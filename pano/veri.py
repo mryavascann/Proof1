@@ -31,6 +31,11 @@ KALEM_ADI = {"disari": "Dışarı giden", "iceri": "Dışarıdan gelen", "bot": 
              "baslangic": "Dün 09.00", "bitis": "Bugün 09.00"}
 SEVIYE_KALEMLERI = {"baslangic", "bitis"}
 ONEM_SIRASI = {"acil": 0, "orta": 1, "bilgi": 2}
+UYARI_METNI = {"supheli_token": "Şüpheli görünen token hareketi görüldü; ayrıntı defterde.",
+               "adres_zehirleme": "Adres zehirleme kalıbına benzeyen bir giriş görüldü; ayrıntı defterde.",
+               "aciklanamayan": "Defterde açıklanamayan bir fark görüldü.",
+               "okunamayan_ag": "Bir ağda yalnız çekim görülebiliyor; sonrası okunamadı.",
+               "taninmadi": "Kaynağı tanınmayan bir giriş görüldü."}
 AYLAR = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım",
          "Aralık"]
 
@@ -205,8 +210,10 @@ def _uyarilar(db) -> dict:
         olgular = {o.no: o for o in olgulari_oku(db, oturum)}
         metin = next((kalip.olgu_cumlesi(olgular[n]) for n in nolar if n in olgular and kalip.olgu_cumlesi(olgular[n])),
                      None)
+        gizli = any(olgular[n].gizli for n in nolar if n in olgular)
         liste.append({"tur": tur, "onem": onem, "zaman": zaman, "olgular": nolar,
-                      "metin": metin or "Bu uyarının ayrıntısı gizli."})
+                      "metin": metin or ("Bu uyarının ayrıntısı gizli." if gizli else
+                                         UYARI_METNI.get(tur, "Bu uyarı için cümle yok; ayrıntı defterde."))})
     return {"liste": liste, "toplam": len(satirlar)}
 
 

@@ -16,6 +16,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from contextlib import closing
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -25,7 +26,7 @@ from anlatim import butce, kalip
 from anlatim.denetim import Olgu, denetle
 
 KOK_DIZIN = Path(__file__).resolve().parents[1]
-TELEGRAM_ZAMAN_ASIMI = 4.0   # Buğra 5 sn bekliyor; süreç açılışı için pay
+TELEGRAM_ZAMAN_ASIMI = 3.0   # Buğra 5 sn bekliyor; süreç açılışı (Windows) ve yazma için pay
 DIGER_ZAMAN_ASIMI = 30.0
 TELEGRAM_AZAMI_CIKTI = 600
 DIGER_AZAMI_CIKTI = 4000
@@ -72,12 +73,29 @@ def olgulari_oku(db: sqlite3.Connection, oturum: str) -> list[Olgu]:
     return sorted(olgular, key=lambda o: int(o.no[1:]) if o.no[1:].isdigit() else 0)
 
 
+def ozet_olgulari(olgular: list[Olgu]) -> list[str]:
+    """Telegram ve pano başlığı için en önemli olgular. Bot uyuşmazlığı varsa yalnız o (sahnenin canlı anı);
+    yoksa dünden bugüne özet (önce toplam servet), sonra çekim özeti. Tanınmayan/şüpheli girişler başlığa girmez."""
+    acik = [o for o in olgular if not o.gizli]
+    bot = [o.no for o in acik if o.tur == "bot_uyusmazlik"]
+    if bot:
+        return bot[:1]
+    sira = sorted((o for o in acik if o.tur == "kopru_ozet"), key=lambda o: o.alanlar.get("kapsam") != "servet")
+    secilen = [o.no for o in sira[:1]] + [o.no for o in acik if o.tur == "cekim_ozet"][:1]
+    if secilen:
+        return secilen
+    yedek, _ = kalip.ozet([o for o in acik if o.tur not in ("taninmadi", "supheli")], 1)
+    return [o.no for o in acik if o.tur not in ("taninmadi", "supheli") and kalip.olgu_cumlesi(o) == yedek][:1]
+
+
 def gorevler(olgular: list[Olgu]) -> list[dict]:
-    acik = [o.no for o in olgular if not o.gizli]
-    if not acik:
+    if not any(not o.gizli for o in olgular):
         return []
-    liste = [{"id": "telegram", "yer": "telegram", "cumle_sayisi": 1, "olgular": acik},
-             {"id": "pano", "yer": "pano", "cumle_sayisi": 2, "olgular": acik}]
+    ozet = ozet_olgulari(olgular)
+    liste = [{"id": "telegram", "yer": "telegram", "cumle_sayisi": 1, "olgular": ozet[:1]},
+             {"id": "pano", "yer": "pano", "cumle_sayisi": len(ozet) or 1, "olgular": ozet}]
+    if not ozet:
+        liste = []
     for o in olgular:
         if o.gizli or o.tur in OZET_TURLERI or o.tur not in kalip.KALIPLAR:
             continue
@@ -109,15 +127,15 @@ def _kullanim(yanit) -> dict:
 
 
 def _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay, zaman_asimi, azami_cikti):
-    """(model, {görev id: cevap}) döndürür; model 'kalip' ise çağrı yapılmamış ya da başarısızdır."""
+    """(model, {görev id: cevap}, neden) döndürür; model 'kalip' ise çağrı yapılmamış ya da başarısızdır."""
     if istemci is None:
-        return butce.KALIP, {}
+        return butce.KALIP, {}, "model anahtarı yok"
     tahmini_istek = _istek(butce.HAIKU, gorev_listesi, olgular, azami_cikti)
     girdi_tahmini = (len(SISTEM) + len(tahmini_istek["messages"][0]["content"])) // 2 + 200
     model = butce.model_sec(db, kullanici, ay, girdi_tahmini, azami_cikti)
     if model == butce.KALIP:
         butce.yaz(db, kullanici, ay, butce.KALIP, 0, 0, Decimal(0), "tavan")
-        return butce.KALIP, {}
+        return butce.KALIP, {}, "bütçe tavanı"
 
     import anthropic
     istek = _istek(model, gorev_listesi, olgular, azami_cikti)
@@ -125,10 +143,10 @@ def _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay, zaman_asim
         yanit = istemci.with_options(timeout=zaman_asimi, max_retries=0).messages.create(**istek)
     except anthropic.APITimeoutError:
         butce.yaz(db, kullanici, ay, model, 0, 0, Decimal(0), "zaman_asimi")
-        return butce.KALIP, {}
-    except (anthropic.APIConnectionError, anthropic.APIStatusError):
+        return butce.KALIP, {}, f"zaman aşımı ({zaman_asimi:g} sn)"
+    except (anthropic.APIConnectionError, anthropic.APIStatusError) as e:
         butce.yaz(db, kullanici, ay, model, 0, 0, Decimal(0), "hata")
-        return butce.KALIP, {}
+        return butce.KALIP, {}, f"API hatası: {type(e).__name__} {getattr(e, 'status_code', '')}".strip()
 
     kullanim = _kullanim(yanit)
     durum = {"end_turn": "ok", "refusal": "red", "max_tokens": "kesik"}.get(yanit.stop_reason, str(yanit.stop_reason))
@@ -136,13 +154,13 @@ def _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay, zaman_asim
               kullanim["input_tokens"] + kullanim["cache_read_input_tokens"] + kullanim["cache_creation_input_tokens"],
               kullanim["output_tokens"], butce.tutar_tl(model, kullanim), durum)
     if durum != "ok":
-        return butce.KALIP, {}
+        return butce.KALIP, {}, f"model durdu: {yanit.stop_reason}"
     try:
         metin = next(b.text for b in yanit.content if getattr(b, "type", "") == "text")
         cevaplar = json.loads(metin)["cevaplar"]
     except (StopIteration, ValueError, KeyError, TypeError):
-        return butce.KALIP, {}
-    return model, {c.get("id"): c for c in cevaplar if isinstance(c, dict)}
+        return butce.KALIP, {}, "model cevabı JSON değil"
+    return model, {c.get("id"): c for c in cevaplar if isinstance(c, dict)}, ""
 
 
 def _cumle_tablosu(db: sqlite3.Connection) -> None:
@@ -151,18 +169,36 @@ def _cumle_tablosu(db: sqlite3.Connection) -> None:
         denetim TEXT, yer TEXT, zaman TEXT)""")
 
 
-def _yaz(db, oturum, gorev, olgular, model, cevaplar) -> dict | None:
+def _gunluge(kayit: dict) -> None:
+    """Teşhis günlüğü (data/ altında, depoya girmez). Reddedilen ham cümle yazılmaz; yalnız neden."""
+    yol = Path(os.environ.get("PROOF1_ANLATICI_GUNLUK") or KOK_DIZIN / "data" / "anlatici_gunluk.jsonl")
+    try:
+        yol.parent.mkdir(parents=True, exist_ok=True)
+        with open(yol, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"zaman": _simdi(), **kayit}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def _yaz(db, oturum, gorev, olgular, model, cevaplar, neden="", sure_ms=0) -> dict | None:
     olgu_haritasi = {o.no: o for o in olgular}
     yetkili = [olgu_haritasi[n] for n in gorev["olgular"]]
     gizliler = [o for o in olgular if o.gizli]
     cevap = cevaplar.get(gorev["id"])
-    if model != butce.KALIP and cevap and denetle(cevap, yetkili + gizliler).gecti:
+    if model != butce.KALIP and not cevap:
+        neden = "modelin cevabında bu görev yok"
+    elif model != butce.KALIP:
+        sonuc = denetle(cevap, yetkili + gizliler)
+        neden = "" if sonuc.gecti else f"denetim: {sonuc.neden}"
+    if model != butce.KALIP and cevap and not neden:
         metin, dayanak, kayit_modeli, durum = cevap["metin"].strip(), list(cevap["olgular"]), model, "gecti"
     else:
         metin, dayanak = kalip.ozet(yetkili, gorev["cumle_sayisi"])
         kayit_modeli, durum = butce.KALIP, "kalip"
-        if not metin:
-            return None
+    _gunluge({"oturum": oturum, "gorev": gorev["id"], "yer": gorev["yer"], "model": model, "sonuc": durum,
+              "neden": neden, "sure_ms": sure_ms})
+    if not metin:
+        return None
     db.execute("INSERT INTO cumle (oturum, olgular, metin, model, denetim, yer, zaman) VALUES (?,?,?,?,?,?,?)",
                (oturum, json.dumps(dayanak), metin, kayit_modeli, durum, gorev["yer"], _simdi()))
     db.commit()
@@ -186,10 +222,12 @@ def anlat(db_yolu, oturum: str, istemci, kullanici: str = "bugra", ay: str | Non
         for gorev_listesi, zaman_asimi, azami_cikti in asamalar:
             if not gorev_listesi:
                 continue
-            model, cevaplar = _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay,
-                                            zaman_asimi, azami_cikti)
+            bas = time.monotonic()
+            model, cevaplar, neden = _modeli_cagir(db, istemci, gorev_listesi, olgular, kullanici, ay,
+                                                   zaman_asimi, azami_cikti)
+            sure_ms = int((time.monotonic() - bas) * 1000)
             for g in gorev_listesi:
-                satir = _yaz(db, oturum, g, olgular, model, cevaplar)
+                satir = _yaz(db, oturum, g, olgular, model, cevaplar, neden, sure_ms)
                 if satir:
                     yazilan.append(satir)
     return yazilan

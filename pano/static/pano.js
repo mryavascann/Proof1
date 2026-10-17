@@ -2,7 +2,6 @@
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   var AYLAR = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-  var GIZLI = "••••";
   var durum = {
     rapor: null, gizli: true, secili: null, dar: null, ilk: true, kopruKapsam: "servet", ertelenen: {},
     oturum: new URLSearchParams(location.search).get("oturum"), bantlar: []
@@ -29,9 +28,9 @@
     return s;
   }
   function duyur(m) { $("duyuru").textContent = m; }
-  // Gizli modda tutarlar "••••" olur; çekim/adres sayıları ve şema oranları kalır.
-  var TUTAR = /[+\-−]?\d[\d.,]*\s?(\$|TL|[A-ZÇĞİÖŞÜ][A-Z0-9ÇĞİÖŞÜ]{1,11})(?![a-zçğıöşü])/g;
-  function m(metin) { return durum.gizli && metin ? String(metin).replace(TUTAR, GIZLI + " $1") : metin; }
+  // Gizli mod (devir metni): yalnız bakiye seviyeleri ve yüzdeler gizlidir; bunları sunucu rapora hiç koymaz.
+  // Giren, çıkan ve aktarım tutarları görünür kalır; bu yüzden hareket tutarları burada maskelenmez.
+  function m(metin) { return metin; }
   function gunTr(oturum) {
     var x = /(\d{4})-(\d{2})-(\d{2})$/.exec(oturum || "");
     return x ? (+x[3]) + " " + AYLAR[+x[2]] + " " + x[1] : oturum;

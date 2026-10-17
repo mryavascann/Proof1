@@ -172,3 +172,70 @@ class Anlat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GorevSecimi(unittest.TestCase):
+    """Buğra'nın provası: Telegram cümlesi gerçek veride yavaştı ve kalıba düştü; pano başlığı bot ile ilgisiz bir
+    girişi aynı cümlede birleştiriyordu. Telegram ve pano görevleri yalnız en önemli olguyu alır."""
+
+    def olgu(self, no, tur, gizli=False, **alanlar):
+        return anlat.Olgu(no, tur, alanlar, gizli)
+
+    def test_bot_varsa_telegram_ve_pano_yalniz_bot(self):
+        olgular = [self.olgu("o1", "cekim_ozet", donem="x", borsa="OKX TR", adres_sayisi="3", cekim_sayisi="4",
+                             toplam_dolar="5 $"),
+                   self.olgu("o2", "taninmadi", tarih="25 Şubat 2025 10:29", miktar="1 USDT0"),
+                   self.olgu("o3", "bot_uyusmazlik", bot="USDT/TRY spot grid", kayit_sonuc="+99,89 TL",
+                             gercek_sonuc="-0,22 TL")]
+        g = {x["id"]: x for x in anlat.gorevler(olgular)}
+        self.assertEqual(g["telegram"]["olgular"], ["o3"])
+        self.assertEqual(g["pano"]["olgular"], ["o3"])
+        self.assertEqual(g["pano"]["cumle_sayisi"], 1)
+
+    def test_bot_yoksa_ozet_olgulari(self):
+        olgular = [self.olgu("o1", "cekim_ozet", donem="x", borsa="OKX TR", adres_sayisi="3", cekim_sayisi="4",
+                             toplam_dolar="5 $"),
+                   self.olgu("o2", "taninmadi", tarih="25 Şubat 2025 10:29", miktar="1 USDT0"),
+                   self.olgu("o4", "supheli", tarih="1 Mart 2025", miktar="1 X")]
+        g = {x["id"]: x for x in anlat.gorevler(olgular)}
+        self.assertEqual(g["telegram"]["olgular"], ["o1"])
+        self.assertNotIn("o2", g["pano"]["olgular"])
+
+    def test_telegram_istegi_kucuk(self):
+        dizin = Path(tempfile.mkdtemp())
+        try:
+            db = dizin / "proof1.db"
+            shutil.copy(ORNEK_DB, db)
+            istemci = SahteIstemci(lambda i: yanit(kaliptan_cevaplar(i)))
+            anlat.anlat(db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
+            girdi = json.loads(istemci.cagrilar[0][1]["messages"][0]["content"])
+            self.assertLessEqual(len(girdi["olgular"]), 3)
+            self.assertEqual([g["id"] for g in girdi["gorevler"]], ["telegram"])
+        finally:
+            shutil.rmtree(dizin)
+
+    def test_denetim_nedeni_gunluge_ham_cumle_yok(self):
+        import os
+        dizin = Path(tempfile.mkdtemp())
+        try:
+            db, gunluk = dizin / "proof1.db", dizin / "anlatici.jsonl"
+            shutil.copy(ORNEK_DB, db)
+
+            def cevapla(i):
+                c = kaliptan_cevaplar(i)
+                for x in c:
+                    x["metin"] = "Paranın %77,3'ü bir yere gitti."
+                return yanit(c)
+            os.environ["PROOF1_ANLATICI_GUNLUK"] = str(gunluk)
+            try:
+                anlat.anlat(db, OTURUM, SahteIstemci(cevapla), kullanici="bugra", ay="2026-10")
+            finally:
+                os.environ.pop("PROOF1_ANLATICI_GUNLUK", None)
+            satirlar = [json.loads(s) for s in gunluk.read_text(encoding="utf-8").splitlines()]
+            tg = next(s for s in satirlar if s["gorev"] == "telegram")
+            self.assertEqual(tg["sonuc"], "kalip")
+            self.assertIn("olgularda yok", tg["neden"])
+            self.assertIn("sure_ms", tg)
+            self.assertNotIn("77,3", gunluk.read_text(encoding="utf-8").replace(tg["neden"], ""))
+        finally:
+            shutil.rmtree(dizin)
