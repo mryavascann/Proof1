@@ -117,7 +117,9 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
     etiket = {r["id"]: r["etiket"] for r in db.execute("SELECT id, etiket FROM adres")}
 
     # 1. Çekim özeti ve ağ payları (borsanın çekim kaydından)
-    cekimler = db.execute("SELECT * FROM hareket WHERE kaynak='borsa' AND tur='cekim' AND durum='ok'").fetchall()
+    # Yalnız zincire giden kripto çekimleri (TL banka çekimi karsi='banka', ağı yok: özete girmez)
+    cekimler = db.execute("SELECT * FROM hareket WHERE kaynak='borsa' AND tur='cekim' AND durum='ok' AND ag IS NOT NULL "
+                          "AND COALESCE(karsi, '') != 'banka'").fetchall()
     if cekimler:
         dolarlar = [_dolar(h, fiyat) for h in cekimler]
         toplam = -sum((d for d in dolarlar if d is not None), Decimal(0))
@@ -268,10 +270,20 @@ def kalip_cumle(db, oturum: str) -> tuple[str, list[str]]:
     olgular = {r["no"]: (r["tur"], json.loads(r["alanlar"])) for r in
                db.execute("SELECT no, tur, alanlar FROM olgu WHERE oturum=? AND gizli=0", (oturum,))}
     parcalar, dayanak = [], []
-    bot = next(((no, a) for no, (t, a) in olgular.items() if t == "bot_uyusmazlik"), None)
+    bot = next(((no, t, a) for no, (t, a) in olgular.items() if t == "bot_uyusmazlik"), None) or \
+        next(((no, t, a) for no, (t, a) in olgular.items() if t in ("bot_tutuyor", "bot_fiyat_yok", "bot_bekleniyor")), None)
     if bot:
-        no, a = bot
-        parcalar.append(f"{a['bot']} botu: kayıt {a['kayit_sozle']} diyor; hesabına dönen paraya göre {a['gercek_sozle']}.")
+        no, t, a = bot
+        if t == "bot_uyusmazlik":
+            parcalar.append(f"{a['bot']} botu: kayıt {a['kayit_sozle']} diyor; hesabına dönen paraya göre {a['gercek_sozle']}.")
+        elif t == "bot_tutuyor":
+            parcalar.append(f"{a['bot']} botu: kayıt {a['kayit_sozle']} diyor; hesabına dönen paraya göre de "
+                            f"{a.get('gercek_sozle', a['kayit_sozle'])}, kayıt tutuyor.")
+        elif t == "bot_fiyat_yok":
+            parcalar.append(f"{a['bot']} botu durdu; kayıt {a['kayit_sozle']} diyor ama dönen coinin fiyatını bulamadım, "
+                            "gerçek sonucu hesaplayamadım.")
+        else:
+            parcalar.append(f"{a['bot']} botu durdu; kayıt {a['kayit_sozle']} diyor, hesaba dönen para henüz görünmüyor.")
         dayanak.append(no)
     ozet = next(((no, a) for no, (t, a) in olgular.items() if t == "kopru_ozet" and a.get("kapsam") == "servet"), None)
     if ozet:

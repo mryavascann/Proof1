@@ -8,6 +8,7 @@ Borsa satırları canlı okunur (çekim kaydı, alt hesap defteri, botlar); zinc
 """
 import json
 from decimal import Decimal
+from pathlib import Path
 
 from veri import ayar, bicim, db as dbm
 from veri.atk import Atk
@@ -190,21 +191,41 @@ def gecmis_gun(db, gun: str, oturum: str):
         kopruyu_yaz(db, gun, k, olgulari_kur(db, oturum, gun, k, [], (bas, bit), f.dolar))
 
 
-def canlidan(kaynak=None, hedef=HEDEF) -> dict:
-    """v2: sabah işinin gerçek çıktısından anonim kopya. Adres → etiket, işlem kimliği → TX_n, seviye yok."""
+# Beyaz liste: örnek veritabanına yalnız bunlar girer (Merve'nin tabloları, iç önbellekler, bakiye/kapanış girmez).
+IZINLI_TABLOLAR = ("hareket", "adres", "fotograf", "kopru", "olgu", "uyari", "cagri", "_ag_durum", "_olay", "_ornek")
+
+
+def canlidan(kaynak=None, hedef=HEDEF, gecmis: bool = True) -> dict:
+    """v3: sabah işinin gerçek çıktısından anonim kopya, beyaz listeyle sıfırdan kurulur.
+    Adres → etiket, işlem kimliği → TX_n; seviye, bakiye, sohbet kimliği ve kaynak kimlikleri yok."""
     import sqlite3
-    kaynak = kaynak or ayar.db_yolu()
-    gecmis_gun(dbm.baglan(kaynak), "2026-10-12", GUN11)               # 11 Ekim AVAX günü
+    kaynak = Path(kaynak or ayar.db_yolu())
+    if gecmis:
+        gecmis_gun(dbm.baglan(kaynak), "2026-10-12", GUN11)           # 11 Ekim AVAX günü
     if hedef.exists():
         hedef.unlink()
-    with sqlite3.connect(str(kaynak)) as k:
-        k.execute(f"VACUUM INTO '{hedef}'")
-    db = sqlite3.connect(str(hedef))
+    db = dbm.baglan(hedef)                                              # yalnız sözleşmedeki (Buğra'nın) tablolar
+    db.execute("""CREATE TABLE IF NOT EXISTS _ag_durum (adres_id INTEGER, ag TEXT, durum TEXT, kaynak TEXT,
+                  olay INTEGER, cekim_agi INTEGER, zaman TEXT, PRIMARY KEY (adres_id, ag))""")
+    db.execute("""CREATE TABLE IF NOT EXISTS _olay (adres_id INTEGER, ag TEXT, tx TEXT, ts INTEGER, tur TEXT, islev TEXT,
+                  neden TEXT, PRIMARY KEY (adres_id, ag, tx))""")
+    db.execute("ATTACH DATABASE ? AS k", (str(kaynak),))
+    var = {r[0] for r in db.execute("SELECT name FROM k.sqlite_master WHERE type='table'")}
+    for t in ("hareket", "adres", "kopru", "olgu", "uyari", "cagri", "_ag_durum", "_olay"):
+        if t in var:
+            db.execute(f"INSERT INTO main.{t} SELECT * FROM k.{t}")
+    db.commit()
+    db.execute("DETACH DATABASE k")
     db.row_factory = sqlite3.Row
-    for t in IC_TABLOLAR_SIL:
-        db.execute(f"DROP TABLE IF EXISTS {t}")
-    db.execute("DROP VIEW IF EXISTS cagri_ozet")
     db.execute("UPDATE adres SET adres=etiket, kisa=etiket, gezgin_url=NULL")
+    db.execute("UPDATE olgu SET kaynak='[]'")                                    # billId / algoId / hareket kimliği yok
+    db.execute("DELETE FROM cagri WHERE kaynak='Telegram'")                      # sohbet kimliği taşıyabilir
+    db.execute("UPDATE kopru SET varlik_tutar='{}' WHERE kalem='fiyat'")          # fiyat kalemi = dünkü seviye × fark
+    for r in db.execute("SELECT oturum, no, alanlar FROM olgu WHERE tur='kopru'").fetchall():
+        a = json.loads(r["alanlar"])
+        if a.get("kalem") == "fiyat" and "coin" in a:
+            a.pop("coin")
+            db.execute("UPDATE olgu SET alanlar=? WHERE oturum=? AND no=?", (json.dumps(a, ensure_ascii=False), r["oturum"], r["no"]))
     # Kırp: depoya sığsın. Benim adreslerin anlamlı işlemleri tam; diğer adreslerde (adres, ağ) başına son 100 satır;
     # yalnız ücretten ibaret işlemler (onay, başarısız) atılır.
     benim = "(SELECT id FROM adres WHERE tahmin='benim')"
@@ -237,11 +258,15 @@ def canlidan(kaynak=None, hedef=HEDEF) -> dict:
         db.execute("UPDATE olgu SET alanlar=? WHERE oturum=? AND no=?", (json.dumps(alanlar, ensure_ascii=False), r["oturum"], r["no"]))
     db.execute("CREATE TABLE IF NOT EXISTS _ornek (anahtar TEXT PRIMARY KEY, deger TEXT)")
     db.execute("DELETE FROM _ornek")
-    db.execute("INSERT INTO _ornek VALUES ('surum', 'v2'), ('uretim', ?), ('not', ?)",
-               (simdi(), "Sabah işinin gerçek çıktısı; adres/işlem kimliği yer tutucu, seviye ve gizli olgu değerleri yok."))
+    db.execute("INSERT INTO _ornek VALUES ('surum', 'v3'), ('uretim', ?), ('not', ?)",
+               (simdi(), "Sabah işinin gerçek çıktısı (beyaz liste); adres/işlem kimliği yer tutucu, seviye, bakiye ve gizli olgu değerleri yok."))
     db.commit()
     ozet = {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
             for t in ("hareket", "adres", "olgu", "uyari", "kopru", "cagri", "fotograf")}
+    fazla = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")} - set(IZINLI_TABLOLAR)
+    if fazla:
+        raise RuntimeError(f"örnek veritabanında izinsiz tablo: {fazla}")
+    db.execute("PRAGMA journal_mode=DELETE")
     db.execute("VACUUM")
     db.close()
     return ozet

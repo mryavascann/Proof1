@@ -83,6 +83,65 @@ class Mesaj(unittest.TestCase):
         self.assertNotIn("360", m.metin)
 
 
+ONCE_TELEGRAM_SONRA_PANO = '''import sqlite3, sys, time
+d = sqlite3.connect(sys.argv[1])
+d.execute("CREATE TABLE IF NOT EXISTS cumle (id INTEGER PRIMARY KEY, oturum, olgular, metin, model, denetim, yer, zaman)")
+time.sleep(0.3)
+d.execute("INSERT INTO cumle (oturum, olgular, metin, model, denetim, yer) VALUES (?,?,?,?,?,?)",
+          (sys.argv[2], '["o1"]', "Telegram cümlesi.", "claude-sonnet-5-5", sys.argv[3], "telegram")); d.commit()
+time.sleep(1.5)
+d.execute("INSERT INTO cumle (oturum, olgular, metin, model, denetim, yer) VALUES (?,?,?,?,?,?)",
+          (sys.argv[2], '["o1"]', "Pano cümlesi.", "claude-sonnet-5-5", "gecti", "pano")); d.commit()
+'''
+
+
+class AnlaticiZamanlama(unittest.TestCase):
+    def _hazirla(self, denetim="gecti"):
+        import tempfile
+        import time
+        dizin = tempfile.mkdtemp()
+        yol, betik = os.path.join(dizin, "t.db"), os.path.join(dizin, "a.py")
+        with open(betik, "w", encoding="utf-8") as f:
+            f.write(ONCE_TELEGRAM_SONRA_PANO)
+        db = dbm.baglan(yol)
+        OlguYazici(db, "s").ekle("kopru_ozet", {"kapsam": "servet", "degisim": "1 $"})
+        bas = time.monotonic()
+        m = mesaj_hazirla(db, "s", f'"{sys.executable}" "{betik}" "{yol}" {{oturum}} {denetim}', "http://p")
+        return db, m, time.monotonic() - bas
+
+    def test_telegram_cumlesi_gelince_beklemeden_devam(self):
+        import time
+        db, m, sure = self._hazirla()
+        self.assertEqual(m.metin, "Telegram cümlesi.")
+        self.assertLess(sure, 1.5)                                   # pano cümlesini beklemedi
+        time.sleep(2.5)
+        pano = db.execute("SELECT COUNT(*) FROM cumle WHERE yer='pano'").fetchone()[0]
+        self.assertEqual(pano, 1, "anlatıcı öldürülmemeli; pano cümleleri sonra da yazılabilmeli")
+
+    def test_anlaticinin_dogrulanmis_kalibi_kabul(self):
+        db, m, _ = self._hazirla(denetim="kalip")
+        self.assertEqual(m.metin, "Telegram cümlesi.")
+
+
+class YalnizGonder(unittest.TestCase):
+    def test_hazir_olgulardan_gonderir(self):
+        from calistir.sabah import hazir_gonder
+
+        class T:
+            hazir = True
+            gonderilen = []
+
+            def gonder_pano(self, metin, baglanti):
+                self.gonderilen.append((metin, baglanti))
+                return {"message_id": 3}
+        db = _db()
+        t = T()
+        m, ok = hazir_gonder(db, "sabah-x", t, anlatici_komut="", pano_url="http://localhost:3003")
+        self.assertTrue(ok)
+        self.assertIn("0,19 $", t.gonderilen[0][0])
+        self.assertTrue(t.gonderilen[0][1].endswith("oturum=sabah-x"))
+
+
 class TelegramGonder(unittest.TestCase):
     def test_html_baglanti_reddedilirse_duz_metin(self):
         http = SahteHttp(durum=400)

@@ -12,6 +12,7 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta, timezone
 
 from veri import ayar, bicim, db as dbm
@@ -29,37 +30,80 @@ class Mesaj:
     olgular: list = field(default_factory=list)
 
 
-def _sayilar(metin: str) -> set[str]:
-    return {s.rstrip(".,") for s in re.findall(r"\d[\d.,]*", metin)}
+def _sayilar(metin: str) -> list:
+    """Türkçe biçimli sayılar → Decimal ('1.234,56' → 1234.56; nokta binlik, virgül ondalık)."""
+    sonuc = []
+    for s in re.findall(r"\d[\d.,]*", metin):
+        s = s.rstrip(".,")
+        try:
+            sonuc.append(Decimal(s.replace(".", "").replace(",", ".")))
+        except InvalidOperation:
+            pass
+    return sonuc
 
 
 def _gizli_sizdi_mi(db, oturum: str, metin: str) -> bool:
-    gizli = set()
+    """Cümledeki bir sayı gizli bir olgu değerine yakınsa (±%2; yuvarlama ve biçim farkı dahil) sızmış sayılır.
+    Tek haneli tam sayılar (1, 3 kez…) karşılaştırılmaz."""
+    gizli = []
     for (alanlar,) in db.execute("SELECT alanlar FROM olgu WHERE oturum=? AND gizli=1", (oturum,)):
         for v in json.loads(alanlar).values():
-            gizli |= {s for s in _sayilar(str(v)) if len(s.replace(",", "").replace(".", "")) >= 2}
-    return bool(gizli & _sayilar(metin))
+            gizli += [g for g in _sayilar(str(v)) if not (g == g.to_integral_value() and g < 10)]
+    for s in _sayilar(metin):
+        for g in gizli:
+            if g and abs(s - g) <= abs(g) * Decimal("0.02"):
+                return True
+    return False
+
+
+def _telegram_cumlesi(db, oturum: str):
+    try:
+        return db.execute("SELECT metin, model, olgular FROM cumle WHERE oturum=? AND yer='telegram' "
+                          "AND denetim IN ('gecti', 'kalip') ORDER BY (denetim='gecti') DESC, id DESC LIMIT 1",
+                          (oturum,)).fetchone()
+    except Exception:
+        return None                 # cumle tablosu Merve'nin; henüz yoksa kalıp
 
 
 def mesaj_hazirla(db, oturum: str, anlatici_komut: str, pano_url: str, zaman_asimi: float = 5.0) -> Mesaj:
+    """Anlatıcı önce Telegram cümlesini, sonra pano/bant cümlelerini yazar. Telegram cümlesi gelir gelmez devam
+    edilir; anlatıcı öldürülmez (pano cümlelerini arka planda yazmayı sürdürür). 5 sn'de gelmezse kalıp cümle."""
     baglanti = f"{pano_url.rstrip('/')}/?oturum={oturum}"
+    r = None
     if anlatici_komut:
         komut = anlatici_komut.replace("{oturum}", oturum).replace("{db}", f'"{ayar.db_yolu()}"')
         p = subprocess.Popen(komut, shell=True, cwd=ayar.KOK, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        try:
-            p.wait(timeout=zaman_asimi)
-        except subprocess.TimeoutExpired:
-            p.kill()                # 5 saniyede dönmedi: kalıp cümle
-    try:
-        r = db.execute("SELECT metin, model, olgular FROM cumle WHERE oturum=? AND yer='telegram' AND denetim='gecti' "
-                       "ORDER BY id DESC LIMIT 1", (oturum,)).fetchone()
-    except Exception:
-        r = None                    # cumle tablosu Merve'nin; yoksa kalıp
+        bitis = time.monotonic() + zaman_asimi
+        while time.monotonic() < bitis:
+            r = _telegram_cumlesi(db, oturum)
+            if r is not None or p.poll() is not None:
+                break
+            time.sleep(0.2)
+    r = r or _telegram_cumlesi(db, oturum)
     if r and r["metin"] and not _gizli_sizdi_mi(db, oturum, r["metin"]):
         return Mesaj(r["metin"], baglanti, r["model"] or "anlatici", json.loads(r["olgular"] or "[]"))
     from veri.olgu import kalip_cumle
     metin, dayanak = kalip_cumle(db, oturum)
     return Mesaj(metin or "proof1 bu sabah yeni bir şey görmedi.", baglanti, "kalip", dayanak)
+
+
+def adim(gunluk: list, ad: str, fn):
+    """Bir adımı çalıştırır; beklenmeyen hata işi yarıda kesmez, günlüğe yazılır ve None döner."""
+    try:
+        return fn()
+    except Exception as e:
+        gunluk.append(f"{ad} tamamlanamadı ({type(e).__name__})")
+        return None
+
+
+def hazir_gonder(db, oturum: str, telegram, anlatici_komut: str, pano_url: str) -> tuple:
+    """Var olan olgulardan mesajı hazırlar ve gönderir (veri yeniden toplanmaz). (Mesaj, gönderildi mi)."""
+    m = mesaj_hazirla(db, oturum, anlatici_komut, pano_url)
+    gonderildi = bool(telegram is not None and telegram.hazir and telegram.gonder_pano(m.metin, m.baglanti))
+    if gonderildi:
+        db.execute("UPDATE uyari SET gonderildi=? WHERE oturum=? AND onem='acil'", (iso(datetime.now(timezone.utc)), oturum))
+        db.commit()
+    return m, gonderildi
 
 
 def _geri_sar(db, foto: dict, hedef_ms: int, simdi_ms: int) -> dict:
@@ -136,42 +180,45 @@ def calistir(gun: str | None = None, gonder: bool = True, hafta: bool | None = N
     gunluk: list[str] = []
     okx = OkxTr(ayar.okx_kimlik("ana"), db, oturum)
     with Atk(ayar.okx_kimlik("alt"), db, oturum) as atk:
-        cek, yat, cekim_dolar_guncelle = veriyi_topla(db, oturum, okx, atk, gunluk, taze)
+        # Her adım ayrı: biri düşerse (ör. tr.okx.com bağlantıyı keserse) eldeki defterle devam edilir ve mesaj yine gider.
+        if adim(gunluk, "borsa/zincir okuması", lambda: veriyi_topla(db, oturum, okx, atk, gunluk, taze)) is None:
+            gunluk.append("veritabanındaki son okuma kullanılıyor")
+        from veri.adres import cekim_dolar_guncelle
         fiyatci = Fiyatci(atk, db)
-        n = dolar_doldur(db, fiyatci, en_cok=20000)
-        cekim_dolar_guncelle(db)
-        gunluk.append(f"dolar karşılığı: {n} satır")
-        foto = _geri_sar(db, borsa_bakiyeleri(okx, atk), bit_ms, simdi_ms) if simdi_ms > bit_ms else borsa_bakiyeleri(okx, atk)
-        fotografi_yaz(db, gun, iso(datetime.fromtimestamp(bit_ms / 1000, tz=timezone.utc)),
-                      {**foto, **cuzdan_seviyeleri(db, bit_ms)}, fiyatci.dolar, bit_ms)
+        n = adim(gunluk, "dolar karşılığı", lambda: dolar_doldur(db, fiyatci, en_cok=20000))
+        adim(gunluk, "adres dolar toplamı", lambda: cekim_dolar_guncelle(db))
+        gunluk.append(f"dolar karşılığı: {n or 0} satır")
+        foto = adim(gunluk, "borsa fotoğrafı", lambda: _geri_sar(db, borsa_bakiyeleri(okx, atk), bit_ms, simdi_ms)
+                    if simdi_ms > bit_ms else borsa_bakiyeleri(okx, atk)) or {}
+        adim(gunluk, "fotoğraf kaydı", lambda: fotografi_yaz(db, gun, iso(datetime.fromtimestamp(bit_ms / 1000, tz=timezone.utc)),
+                                                            {**foto, **cuzdan_seviyeleri(db, bit_ms)}, fiyatci.dolar, bit_ms))
         dun = (datetime.strptime(gun, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
         dunku = {y: d for y, d in fotograf_oku(db, dun).items() if y.startswith("borsa")}
-        fotolar = {"bit": foto, **({"bas": dunku} if dunku else {})}
+        fotolar = {**({"bit": foto} if foto else {}), **({"bas": dunku} if dunku else {})}
         if not dunku:
             gunluk.append("dünkü fotoğraf yok: borsa seviyesi defterden geri hesaplandı")
-        kopru = kopru_kur(db, gun, bas_ms, bit_ms, fiyatci.dolar, fotolar)
-        botlar = [b for b in botlari_karsilastir(atk, db) if b.durus_ms and bas_ms < b.durus_ms <= bit_ms]
-        kopru_olgu = olgulari_kur(db, oturum, gun, kopru, botlar, (bas_ms, bit_ms), fiyatci.dolar)
-        kopruyu_yaz(db, gun, kopru, kopru_olgu)
+        kopru = adim(gunluk, "köprü", lambda: kopru_kur(db, gun, bas_ms, bit_ms, fiyatci.dolar, fotolar))
+        botlar = adim(gunluk, "bot karşılaştırması", lambda: [b for b in botlari_karsilastir(atk, db)
+                                                               if b.durus_ms and bas_ms < b.durus_ms <= bit_ms]) or []
+        kopru_olgu = adim(gunluk, "olgular", lambda: olgulari_kur(db, oturum, gun, kopru, botlar, (bas_ms, bit_ms), fiyatci.dolar))
+        if kopru:
+            adim(gunluk, "köprü kaydı", lambda: kopruyu_yaz(db, gun, kopru, kopru_olgu or {}))
         if hafta or (hafta is None and datetime.strptime(gun, "%Y-%m-%d").weekday() == 0):
-            h_oturum = f"hafta-{gun}"
-            h_kopru = kopru_kur(db, f"hafta-{gun}", bit_ms - 7 * GUN_MS, bit_ms, fiyatci.dolar, {"bit": foto})
-            olgulari_kur(db, h_oturum, gun, h_kopru, [b for b in botlari_karsilastir(atk, db)
-                                                      if b.durus_ms and bit_ms - 7 * GUN_MS < b.durus_ms <= bit_ms],
-                         (bit_ms - 7 * GUN_MS, bit_ms), fiyatci.dolar)
-            kopruyu_yaz(db, f"hafta-{gun}", h_kopru)
-            gunluk.append("haftalık özet hazırlandı")
-    m = mesaj_hazirla(db, oturum, ayar.al("ANLATICI_KOMUT"), ayar.al("PANO_URL", "http://localhost:3003"))
-    gonderildi = False
+            def haftalik():
+                h_kopru = kopru_kur(db, f"hafta-{gun}", bit_ms - 7 * GUN_MS, bit_ms, fiyatci.dolar, {"bit": foto} if foto else {})
+                olgulari_kur(db, f"hafta-{gun}", gun, h_kopru, [b for b in botlari_karsilastir(atk, db)
+                                                                if b.durus_ms and bit_ms - 7 * GUN_MS < b.durus_ms <= bit_ms],
+                             (bit_ms - 7 * GUN_MS, bit_ms), fiyatci.dolar)
+                kopruyu_yaz(db, f"hafta-{gun}", h_kopru)
+                gunluk.append("haftalık özet hazırlandı")
+            adim(gunluk, "haftalık özet", haftalik)
     if gonder:
         t = Telegram(db=db, oturum=oturum)
-        if t.hazir:
-            gonderildi = bool(t.gonder_pano(m.metin, m.baglanti))
-        else:
+        if not t.hazir:
             gunluk.append("Telegram gönderilmedi: eksik " + ", ".join(ayar.eksikler(["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"])))
-    if gonderildi:
-        db.execute("UPDATE uyari SET gonderildi=? WHERE oturum=? AND onem='acil'", (iso(datetime.now(timezone.utc)), oturum))
-        db.commit()
+        m, gonderildi = hazir_gonder(db, oturum, t, ayar.al("ANLATICI_KOMUT"), ayar.al("PANO_URL", "http://localhost:3003"))
+    else:
+        m, gonderildi = mesaj_hazirla(db, oturum, ayar.al("ANLATICI_KOMUT"), ayar.al("PANO_URL", "http://localhost:3003")), False
     return {"oturum": oturum, "mesaj": m.metin, "kaynak": m.kaynak, "baglanti": m.baglanti, "gonderildi": gonderildi,
             "olgu": db.execute("SELECT COUNT(*) FROM olgu WHERE oturum=?", (oturum,)).fetchone()[0],
             "uyari": db.execute("SELECT COUNT(*) FROM uyari WHERE oturum=?", (oturum,)).fetchone()[0], "gunluk": gunluk}
@@ -183,8 +230,18 @@ def main():
     p.add_argument("--gonderme", action="store_true")
     p.add_argument("--hafta", action="store_true", default=None)
     p.add_argument("--taze", action="store_true", help="zincir önbelleğini kullanma")
+    p.add_argument("--yalniz-gonder", action="store_true", help="veri toplama; var olan olgulardan mesajı gönder")
     a = p.parse_args()
     bas = time.time()
+    if a.yalniz_gonder:
+        from calistir.telegram import Telegram
+        ayar.env_yukle()
+        db = dbm.baglan()
+        oturum = f"sabah-{a.gun or datetime.now(IST).strftime('%Y-%m-%d')}"
+        m, ok = hazir_gonder(db, oturum, Telegram(db=db, oturum=oturum), ayar.al("ANLATICI_KOMUT"),
+                             ayar.al("PANO_URL", "http://localhost:3003"))
+        print(f"[{m.kaynak}] {m.metin}\nPanoyu aç: {m.baglanti}\nTelegram: {'gönderildi' if ok else 'gönderilmedi'}")
+        return
     s = calistir(a.gun, gonder=not a.gonderme, hafta=a.hafta, taze=a.taze)
     for satir in s["gunluk"]:
         print("·", satir)

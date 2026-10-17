@@ -47,8 +47,7 @@ class Fiyatci:
             veri = self.atk.cagir("market_get_candles", {"instId": cift, "bar": bar, "after": str(saat + aralik), "limit": 100},
                                   alanlar=["ts", "c"])
         except AtkHata:
-            self._yaz(anahtar, saat, None)
-            return None
+            return None                       # geçici hata: önbelleğe yazılmaz, sonra yeniden denenir
         f = None
         for m in satirlar(veri):
             # OKX mumu: [ts, o, h, l, c, ...] ya da {"ts":..,"c":..}
@@ -69,7 +68,7 @@ class Fiyatci:
                 self._liste = {r.get("instId") for r in satirlar(self.atk.cagir("market_get_instruments", {"instType": "SPOT"},
                                                                                    alanlar=["instId"]))}
             except AtkHata:
-                self._liste = set()
+                return False                  # liste okunamadı: bir dahaki çağrıda yeniden denenir
         return f"{ccy}-USDT" in self._liste
 
     def aralik(self, cift: str, ts_ms: int) -> tuple[Decimal, Decimal] | None:
@@ -87,7 +86,7 @@ class Fiyatci:
             veri = self.atk.cagir("market_get_candles", {"instId": cift, "bar": "1m", "after": str(dk + 60_000), "limit": 1},
                                   alanlar=["ts", "h", "l"])
         except AtkHata:
-            veri = []
+            return None                       # geçici hata: önbelleğe yazılmaz
         sonuc = None
         for m in satirlar(veri):
             ts, h, l = (m[0], m[2], m[3]) if isinstance(m, list) else (m.get("ts"), m.get("h"), m.get("l"))

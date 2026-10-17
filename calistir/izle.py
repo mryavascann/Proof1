@@ -14,7 +14,8 @@ from veri.bot import karsilastir
 from veri.defter import _h, ayristir
 from veri.kayit import iso
 
-DONUS_BEKLE_SN = 10
+DONUS_BEKLE_SN = 60            # dönen satırlar genelde birkaç saniyede gelir; gelmezse en çok 60 sn yeniden okunur
+ANLATICI_SN = 2.0              # canlı anda anlatıcıya verilen süre (sonra kalıp cümle)
 
 
 def donus_hareketleri(ham: list[dict], bot: dict) -> list[dict]:
@@ -41,46 +42,71 @@ class Izleyici:
         self.anlatici_komut = anlatici_komut
         self.uyku, self.saat, self.yaz = uyku, saat, yaz
 
-    def etkinler(self) -> dict:
-        from veri.atk import satirlar
+    def _guvenli(self, ne: str, fn):
+        """ATK çağrısını hataya karşı sarar: hata yazılır, süreç öldüyse yeniden başlatılır, None döner."""
         try:
-            return {str(b["algoId"]): b for b in satirlar(self.atk.cagir("grid_get_orders", {"algoOrdType": "grid", "status": "active"}))}
-        except Exception as e:                       # 504 vb.: bu turu atla, izlemeyi bırakma
-            self.yaz(f"etkin bot listesi okunamadı ({type(e).__name__}); sonraki turda yeniden")
+            return fn()
+        except Exception as e:
+            self.yaz(f"{ne} okunamadı ({type(e).__name__}); yeniden denenecek")
+            canli_mi = getattr(self.atk, "canli_mi", None)
+            if canli_mi is not None and not canli_mi():
+                try:
+                    self.atk.yeniden_baslat()
+                    self.yaz("ATK yeniden başlatıldı (salt okuma)")
+                except Exception as e2:
+                    self.yaz(f"ATK yeniden başlatılamadı ({type(e2).__name__})")
             return None
+
+    def etkinler(self) -> dict | None:
+        from veri.atk import satirlar
+        v = self._guvenli("etkin bot listesi", lambda: self.atk.cagir("grid_get_orders", {"algoOrdType": "grid", "status": "active"}))
+        return None if v is None else {str(b["algoId"]): b for b in satirlar(v)}
 
     def _gecmis(self, algo: str) -> dict | None:
         from veri.atk import satirlar
-        for _ in range(3):
-            for b in satirlar(self.atk.cagir("grid_get_orders", {"algoOrdType": "grid", "status": "history", "algoId": algo})):
-                if str(b.get("algoId")) == algo:
-                    return b
-            self.uyku(1)
-        return None
+        v = self._guvenli("bot geçmişi", lambda: self.atk.cagir(
+            "grid_get_orders", {"algoOrdType": "grid", "status": "history", "algoId": algo}))
+        return next((b for b in satirlar(v) if str(b.get("algoId")) == algo), None) if v is not None else None
 
     def yakala(self, etkin: dict):
         from veri.atk import satirlar
+        from veri.bot import durdu_mu
         from veri.fiyat import Fiyatci
         from veri.olgu import OlguYazici, bot_olgusu, temizle
         from calistir.sabah import mesaj_hazirla
         algo = str(etkin["algoId"])
-        bot = self._gecmis(algo) or etkin
         bas = self.saat()
-        hareketler = []
+        bot, hareketler = None, []
         while True:
-            ham = satirlar(self.atk.cagir("account_get_bills", {"begin": str(int(bot["cTime"]) - 10_000), "limit": 100}))
-            hareketler = donus_hareketleri(ham, bot)
-            if any(h["tur"] == "bottan_donus" for h in hareketler) or self.saat() - bas >= DONUS_BEKLE_SN:
+            if bot is None:
+                bot = self._gecmis(algo)                 # durdurma anı (uTime) yalnız geçmiş kaydından alınır
+            ham = self._guvenli("hesap defteri", lambda: self.atk.cagir(
+                "account_get_bills", {"begin": str(int(etkin["cTime"]) - 10_000), "limit": 100}))
+            if bot is not None and ham is not None:
+                hareketler = donus_hareketleri(satirlar(ham), bot)
+            if (bot is not None and durdu_mu(bot) and any(h["tur"] == "bottan_donus" for h in hareketler)) \
+                    or self.saat() - bas >= DONUS_BEKLE_SN:
                 break
             self.uyku(2)
+        bot = bot or dict(etkin, state="stopped", stopType="")     # geçmiş hiç gelmediyse: durdu ama sonuç bilinmiyor
         b = karsilastir(bot, hareketler, Fiyatci(self.atk, self.db).aralik, esle=False)
+        if not b.donen and b.durum != "bekleniyor":
+            b.durum = "bekleniyor"
         oturum = f"canli-{algo}"
         temizle(self.db, oturum)
         bot_olgusu(OlguYazici(self.db, oturum), b)
-        m = mesaj_hazirla(self.db, oturum, self.anlatici_komut, self.pano_url)
-        if self.tg is not None and self.tg.hazir and self.tg.gonder_pano(m.metin, m.baglanti):
-            self.db.execute("UPDATE uyari SET gonderildi=? WHERE oturum=?", (iso(datetime.now(timezone.utc)), oturum))
-            self.db.commit()
+        m = mesaj_hazirla(self.db, oturum, self.anlatici_komut, self.pano_url, zaman_asimi=ANLATICI_SN)
+        gitti = False
+        if self.tg is not None and self.tg.hazir:
+            gitti = bool(self.tg.gonder_pano(m.metin, m.baglanti))
+            if not gitti:
+                self.uyku(1)
+                gitti = bool(self.tg.gonder_pano(m.metin, m.baglanti))
+            if gitti:
+                self.db.execute("UPDATE uyari SET gonderildi=? WHERE oturum=?", (iso(datetime.now(timezone.utc)), oturum))
+                self.db.commit()
+            else:
+                self.yaz("Telegram'a gönderilemedi; mesaj veritabanında (uyari.gonderildi boş)")
         self.yaz(f"[{b.inst} {algo}] {b.durum}: {m.metin}")
         return b
 

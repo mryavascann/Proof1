@@ -179,8 +179,7 @@ def kopru_kur(db, gun: str, bas_ms: int, bit_ms: int, fiyat, fotolar: dict | Non
             kalemler["baslangic"].varlik[v] = q
             kalemler["baslangic"].dolar += q * pb
             if q and p_bit[v] != pb:
-                _ekle(kalemler["fiyat"].varlik, v, q)
-                kalemler["fiyat"].dolar += q * (p_bit[v] - pb)
+                kalemler["fiyat"].dolar += q * (p_bit[v] - pb)     # coin miktarı tutulmaz: o, dünkü seviyedir (gizli)
         for v, q in bit.items():
             if v not in fiyatsiz:
                 kalemler["bitis"].varlik[v] = q
