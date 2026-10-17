@@ -89,6 +89,7 @@ class Olgular(unittest.TestCase):
     def test_bot_olgusu(self):
         o = next(o for o in self.olgular.values() if o["tur"] == "bot_uyusmazlik")["alanlar"]
         self.assertEqual((o["kayit_sonuc"], o["gercek_sonuc"]), ("+99,89 TL", "-0,22 TL"))
+        self.assertEqual(o["algoId"], "4014895767398817792")     # anlatıcının araştırması botu bununla okur
 
     def test_kalip_cumle_denetimden_gecer(self):
         cumle, dayanak = kalip_cumle(self.db, self.oturum)
@@ -128,6 +129,19 @@ class Olgular(unittest.TestCase):
         self.assertEqual(len(u), 1)                                   # 5 olay → tek uyarı
         self.assertEqual(len(json.loads(u[0]["olgular"])), 5)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM olgu WHERE oturum='x' AND tur='supheli'").fetchone()[0], 5)
+
+    def test_kapanis_farki_toz_ise_olgu_yok(self):
+        db = dbm.baglan(":memory:")
+        a = "0x" + "aa" * 20
+        cek = [Kayit("cekim", "w1", 1791721943000, "AVAX", "AVAX-Avalanche C-Chain", Decimal("1"), Decimal("0"), "AVAX", a, "0xc1", "2")]
+        hyaz(db, cekim_hareketleri(cek))
+        adres_yaz(db, [AdresKarti(a, "avalanche", ["avalanche"], 3, "benim", "k", 1, 1, 1, 1, "BENIM_1", ["w1"])], cek)
+        db.execute("CREATE TABLE _kapanis (adres_id, ag, varlik, defter, zincir, fark, zaman)")
+        db.execute("INSERT INTO _kapanis VALUES (1, 'avalanche', 'AVAX', '1', '0.999997', '-0.000003', 'z')")
+        db.execute("INSERT INTO _kapanis VALUES (1, 'arbitrum', 'ETH', '0', '0.752', '0.752', 'z')")
+        olgulari_kur(db, "x", "2026-10-12", fiyat=lambda v, ts: None)
+        farklar = [json.loads(r[0]) for r in db.execute("SELECT alanlar FROM olgu WHERE oturum='x' AND tur='defter_farki'")]
+        self.assertEqual([f["fark"] for f in farklar], ["0,752 ETH"])
 
     def test_sayi_alan_reddedilir(self):
         y = OlguYazici(dbm.baglan(":memory:"), "x")

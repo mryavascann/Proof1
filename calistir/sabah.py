@@ -58,9 +58,9 @@ def _gizli_sizdi_mi(db, oturum: str, metin: str) -> bool:
 
 def _telegram_cumlesi(db, oturum: str):
     try:
+        # Yalnız modelin denetimden geçmiş cümlesi; anlatıcı kalıba düştüyse bizim kalıbımız gider (devir metnindeki biçim).
         return db.execute("SELECT metin, model, olgular FROM cumle WHERE oturum=? AND yer='telegram' "
-                          "AND denetim IN ('gecti', 'kalip') ORDER BY (denetim='gecti') DESC, id DESC LIMIT 1",
-                          (oturum,)).fetchone()
+                          "AND denetim='gecti' ORDER BY id DESC LIMIT 1", (oturum,)).fetchone()
     except Exception:
         return None                 # cumle tablosu Merve'nin; henüz yoksa kalıp
 

@@ -30,6 +30,17 @@ def sunucu_komutu() -> list[str]:
     return temel + ["--site", "tr", "--read-only", "--modules", MODULLER]
 
 
+YAZMA_YETKILERI = ("trade", "withdraw")
+
+
+def yetki_denetle(perm: str) -> None:
+    """OKX anahtarının yetkisi (account_get_config.perm, ör. 'read_only,trade'): işlem ya da çekim varsa reddet."""
+    yetkiler = {p.strip().lower() for p in str(perm or "").split(",") if p.strip()}
+    yazan = sorted(yetkiler & set(YAZMA_YETKILERI))
+    if yazan:
+        raise AtkHata("yazma_yetkili_anahtar", "anahtar şu yetkileri taşıyor: " + ",".join(yazan) + " — proof1 yalnız okuma anahtarıyla çalışır")
+
+
 def yazma_araci_mi(ad: str) -> bool:
     ad = ad.lower()
     if ad.endswith(("_get", "_list")) or "_get_" in ad or ad.startswith(("get_", "market_")):
@@ -38,7 +49,7 @@ def yazma_araci_mi(ad: str) -> bool:
 
 
 class Atk:
-    def __init__(self, kimlik: OkxKimlik, db=None, oturum: str | None = None):
+    def __init__(self, kimlik: OkxKimlik, db=None, oturum: str | None = None, yetki_denetimi: bool = True):
         self.k = kimlik
         self.db = db
         self.oturum = oturum
@@ -46,6 +57,8 @@ class Atk:
         self._kuyruk: queue.Queue = queue.Queue()
         self._no = 0
         self.araclar: list[str] = []
+        self.yetki_denetimi = yetki_denetimi
+        self.yetki = "bilinmiyor"         # OKX'in bildirdiği anahtar yetkisi (kanıt panelinde gösterilir)
 
     # --- süreç ---
     def _ortam(self) -> dict:
@@ -110,6 +123,21 @@ class Atk:
         if yazanlar:
             self.kapat()
             raise AtkHata("yazma_araci", ",".join(yazanlar))
+        if self.yetki_denetimi and "account_get_config" in self.araclar:
+            # İkinci kilit: sunucu salt okuma kipinde olsa bile anahtarın kendisi yazamamalı.
+            for _ in range(2):
+                try:
+                    c = satirlar(self.cagir("account_get_config", {}, alanlar=["perm"]))
+                    self.yetki = str(c[0].get("perm") or "bilinmiyor") if c else "bilinmiyor"
+                    break
+                except AtkHata:
+                    time.sleep(1)                       # geçici hata: bir kez daha; bilinmiyorsa çalışmayı kesmez
+            if self.yetki != "bilinmiyor":
+                try:
+                    yetki_denetle(self.yetki)
+                except AtkHata:
+                    self.kapat()
+                    raise
         return self
 
     def kapat(self):

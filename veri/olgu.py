@@ -59,6 +59,7 @@ def bot_olgusu(y: OlguYazici, b, ad: str | None = None) -> str:
     donen_coin = {c: m for c, m in b.donen.items() if c != kote}
     alanlar = {
         "bot": ad or f"{b.taban}/{kote} spot grid",
+        "algoId": b.algo_id,                      # anlatıcının araştırması (ATK, salt okuma) botu bununla okur
         "kurulus": bicim.tarih(b.olus_ms),
         "durdurma": bicim.tarih(b.durus_ms) if b.durus_ms else "çalışıyor",
         "durdurma_tipi": {"1": "satarak durdur", "2": "coinleri tut"}.get(b.stop_type, "bilinmiyor"),
@@ -263,7 +264,7 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
         kapanis = []
     for r in kapanis:
         fark = Decimal(r["fark"])
-        if r["adres_id"] in benim and abs(fark) > Decimal("0.000001"):
+        if r["adres_id"] in benim and abs(fark) > Decimal("0.0001"):        # toz farkı (ör. 0,000003 AVAX) gürültüdür
             no = y.ekle("defter_farki", {"adres": etiket.get(r["adres_id"], "?"), "ag": AG_ADI.get(r["ag"], r["ag"]),
                                          "fark": bicim.miktar(fark, r["varlik"]),
                                          "durum": "zincirdeki bakiye defterle kapanmıyor; bu kadarını açıklayamadım"})

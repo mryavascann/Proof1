@@ -46,11 +46,23 @@ class Readme(unittest.TestCase):
                      "spot_get_fills", "account_get_balance", "market_get_candles", "trade_get_history"):
             self.assertIn(arac, self.metin)
 
+    # proof1'ın kendi herkese açık zincir kimlikleri (kişisel değil): ERC-8004 kayıtları, mühür sözleşmesi, test cüzdanı
+    HERKESE_ACIK = {"0x7c5ab869e8d972885673f19b848084279aad0d48", "0x09a292458f780a28622062dac6560fa6b87b3ed6"}
+
     def test_sir_ve_adres_yok(self):
         for satir in self.metin.splitlines():
-            for adres in re.findall(r"0x[0-9a-fA-F]{40}", satir):
-                self.assertTrue(adres.lower().startswith("0x8004"), f"README'de kişisel adres: {adres[:8]}…")
+            for adres in re.findall(r"0x[0-9a-fA-F]{40}(?![0-9a-fA-F])", satir):   # 64 haneli işlem kimliği adres değil
+                self.assertTrue(adres.lower().startswith("0x8004") or adres.lower() in self.HERKESE_ACIK,
+                                f"README'de kişisel adres: {adres[:8]}…")
         self.assertNotRegex(self.metin, r"(?i)(api_key|secret|passphrase|token)\s*=\s*\S{6,}")
+
+    def test_gorsel_avalanche_ve_demo(self):
+        self.assertIn("ortak/gorsel/proof1-512.jpg", self.metin)
+        self.assertTrue((ayar.KOK / "ortak" / "gorsel" / "proof1-512.jpg").exists())
+        self.assertIn("263", self.metin)
+        self.assertIn("0x7C5aB869e8d972885673f19B848084279AAD0d48", self.metin)
+        for parca in ("Demo sırası", "python -m pano.sunucu", "python -m calistir.izle", "python -m muhur.muhurle", "PROOF1_ARASTIR"):
+            self.assertIn(parca, self.metin)
 
 
 if __name__ == "__main__":
