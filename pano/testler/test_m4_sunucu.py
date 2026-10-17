@@ -100,3 +100,13 @@ class Sunucu(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KayitEtiketi(unittest.TestCase):
+    """M7: yedek ekran kaydı için ekranda görünür "kayıt" etiketi (?kayit=1)."""
+
+    def test_sayfada_kayit_seridi_var_ve_varsayilan_gizli(self):
+        html = (KOK / "pano" / "static" / "index.html").read_text(encoding="utf-8")
+        self.assertRegex(html, r'id="kayit-serit"[^>]*hidden')
+        js = (KOK / "pano" / "static" / "pano.js").read_text(encoding="utf-8")
+        self.assertIn('get("kayit")', js)

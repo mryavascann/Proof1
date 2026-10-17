@@ -49,8 +49,9 @@
     $("pano").setAttribute("aria-busy", "true");
     return fetch("/api/rapor?" + q.toString(), { cache: "no-store" })
       .then(function (y) { return y.json().then(function (g) { if (!y.ok) throw new Error(g.hata || "okunamadı"); return g; }); })
-      .then(function (r) { durum.rapor = r; durum.oturum = r.oturum; ciz(); })
+      .then(function (r) { durum.rapor = r; durum.oturum = r.oturum; $("pano").classList.remove("veri-yok"); ciz(); })
       .catch(function (e) {
+        if (!durum.rapor) $("pano").classList.add("veri-yok");  // önceki rapor varsa ekranda kalır
         $("tazelik").textContent = "Veri okunamadı";
         $("ozet").textContent = e.message === "Veri kaynağı hazırlanmadı." ? e.message : "Pano verisine ulaşılamadı. Sunucu çalışıyor mu?";
       })
@@ -342,7 +343,7 @@
       ul.appendChild(el("li", { sinif: x.onem }, [ikon("uyari"), el("div", null, [el("span", { sinif: "onem", metin: ONEM[x.onem] || x.onem }), m(x.metin)])]));
     });
     $("tum-uyarilar").hidden = u.toplam <= u.liste.length;
-    $("tum-uyarilar").textContent = "Toplam " + u.toplam + " uyarı var; hepsi ayrıntılı modda.";
+    $("tum-uyarilar").textContent = "Toplam " + u.toplam + " uyarı · hepsini Ayrıntılar → Uyarılar'da gör";
   }
 
   /* ---------- sahiplik ---------- */
@@ -395,7 +396,10 @@
     var ayr = location.hash === "#ayrintilar";
     $("pano").hidden = ayr; $("ayrinti").hidden = !ayr;
     if (ayr) { $("git-ayrinti").setAttribute("aria-current", "page"); $("git-genel").removeAttribute("aria-current"); ayrintiYukle(); }
-    else { $("git-genel").setAttribute("aria-current", "page"); $("git-ayrinti").removeAttribute("aria-current"); }
+    else {
+      $("git-genel").setAttribute("aria-current", "page"); $("git-ayrinti").removeAttribute("aria-current");
+      if (durum.rapor && durum.rapor.gizli !== durum.gizli) yukle();
+    }
   }
   function ayrintiYukle() {
     var q = new URLSearchParams();
@@ -403,9 +407,11 @@
     q.set("gizli", durum.gizli ? "1" : "0");
     $("ayrinti").setAttribute("aria-busy", "true");
     return fetch("/api/ayrinti?" + q.toString(), { cache: "no-store" })
-      .then(function (y) { if (!y.ok) throw new Error(); return y.json(); })
+      .then(function (y) { return y.json().then(function (g) { if (!y.ok) throw new Error(g.hata || "okunamadı"); return g; }); })
       .then(function (a) { durum.ayrinti = a; durum.oturum = a.oturum; ayrintiCiz(); })
-      .catch(function () { $("ayrinti-durum").textContent = "Ayrıntılar okunamadı. Sunucu çalışıyor mu?"; })
+      .catch(function (e) {
+        $("ayrinti-durum").textContent = e.message === "Veri kaynağı hazırlanmadı." ? e.message : "Ayrıntılar okunamadı. Sunucu çalışıyor mu?";
+      })
       .finally(function () { $("ayrinti").setAttribute("aria-busy", "false"); });
   }
   function ayrintiCiz() {
@@ -416,7 +422,23 @@
       b.setAttribute("aria-selected", String(secili));
       $("sekme-" + b.getAttribute("data-sekme")).hidden = !secili;
     });
-    hareketlerCiz(a); botCiz(a); kanitCiz(a);
+    hareketlerCiz(a); uyarilarCiz(a); botCiz(a); kanitCiz(a);
+  }
+  function uyarilarCiz(a) {
+    var k = $("sekme-uyarilar"), g = a.uyarilar || [], ONEM = { acil: "Acil", orta: "Orta", bilgi: "Bilgi" };
+    k.innerHTML = "";
+    var toplam = g.reduce(function (s, x) { return s + x.sayi; }, 0);
+    k.appendChild(el("div", { sinif: "bolum-ust" }, [el("h2", { metin: "Uyarılar" }),
+      el("span", { sinif: "donem", metin: toplam + " uyarı · " + g.length + " tür" })]));
+    if (!g.length) { k.appendChild(el("p", { sinif: "not", metin: "Bu raporda uyarı yok." })); return; }
+    k.appendChild(el("p", { sinif: "not", metin: "Aynı türden uyarılar tek satırda toplanır; örnek cümle o türün en önemli ve en yeni uyarısından. Satırların kendisi Hareketler'deki defterde." }));
+    var ul = el("ul", { sinif: "uyarilar" });
+    g.forEach(function (x) {
+      ul.appendChild(el("li", { sinif: x.onem }, [ikon("uyari"), el("div", null, [
+        el("span", { sinif: "onem", metin: (ONEM[x.onem] || x.onem) + " · " + x.sayi + " kez" + (x.canli ? " · canlı izleyici" : "") }),
+        m(x.metin), el("small", { metin: "Son: " + saatTr(x.son) + (x.olgular.length ? " · olgu " + x.olgular.join(", ") : "") })])]));
+    });
+    k.appendChild(ul);
   }
   function tabloKur(basliklar, satirlar) {
     var t = el("table"), b = el("tbody");
@@ -581,6 +603,12 @@
       if (b.getAttribute("aria-disabled") === "true") duyur(b.textContent + ": bu aralık için okuma yok; tüm dönem gösteriliyor.");
     });
   });
+  // Yedek ekran kaydı için: ?kayit=1 → ekranda kalıcı "KAYIT" şeridi (canlı ile karıştırılmasın).
+  if (new URLSearchParams(location.search).get("kayit") === "1") {
+    $("kayit-serit").hidden = false;
+    document.title = "proof1 · kayıt";
+  }
+  $("tum-uyarilar").addEventListener("click", function () { durum.sekme = "uyarilar"; });
   $("panel-kapat").addEventListener("click", panelKapat);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") panelKapat(); });
   if (window.ResizeObserver) {

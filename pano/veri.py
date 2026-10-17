@@ -57,6 +57,11 @@ def tr_sayi(d: Decimal) -> str:
     return ("−" if eksi else "") + tam + ("," + kesir if kesir else "")
 
 
+def _birim(varlik: str) -> str:
+    """Panoda Türk lirası her yerde TL yazılır (anlatıcının gözlem metinleriyle aynı)."""
+    return "TL" if varlik == "TRY" else varlik
+
+
 def _gun_tr(gun: str) -> str:
     y, a, g = (int(x) for x in gun.split("-"))
     return f"{g} {AYLAR[a]} {y}"
@@ -151,7 +156,7 @@ def _varliklar(satirlar) -> list[str]:
     for s in satirlar:
         for varlik, miktar in json.loads(s["varlik_tutar"] or "{}").items():
             toplam[varlik] = toplam.get(varlik, Decimal(0)) + Decimal(miktar)
-    return [f"{tr_sayi(m)} {v}" for v, m in toplam.items() if m != 0]
+    return [f"{tr_sayi(m)} {_birim(v)}" for v, m in toplam.items() if m != 0]
 
 
 def _dolar(satirlar) -> str | None:
@@ -199,22 +204,61 @@ def _kopru(db, oturum: str, gizli: bool) -> dict | None:
             "not": f"Dün 09.00 → {_gun_tr(gun)} 09.00. Tarihsel çekim akışından ayrı bir dönem."}
 
 
-def _uyarilar(db) -> dict:
+def _uyari_satirlari(db, oturum: str) -> list:
+    """Bu raporun uyarıları ve dönem içindeki canlı bot izleyicisi uyarıları (oturum `canli-<algoId>`).
+    Başka günlerin raporlarındaki uyarılar karışmaz."""
     if not _tablo_var(db, "uyari"):
-        return {"liste": [], "toplam": 0}
-    satirlar = db.execute("SELECT oturum, tur, onem, olgular, zaman FROM uyari").fetchall()
+        return []
+    gun = _gun(oturum)
+    if gun:
+        from datetime import date, timedelta
+        sinir = f"{date.fromisoformat(gun) - timedelta(days=1)}T06:00"  # dün 09.00 İstanbul, UTC
+    else:
+        sinir = ""
+    satirlar = db.execute("SELECT oturum, tur, onem, olgular, zaman FROM uyari "
+                          "WHERE oturum=? OR (oturum LIKE 'canli-%' AND coalesce(zaman, '') >= ?)",
+                          (oturum, sinir)).fetchall()
     satirlar.sort(key=lambda r: (ONEM_SIRASI.get(r[2], 9), _ters(r[4])))
+    return satirlar
+
+
+def _uyari_metni(db, oturum: str, tur: str, nolar: list, olgu_onbellek: dict) -> str:
+    if oturum not in olgu_onbellek:
+        olgu_onbellek[oturum] = {o.no: o for o in olgulari_oku(db, oturum)}
+    olgular = olgu_onbellek[oturum]
+    metin = next((kalip.olgu_cumlesi(olgular[n]) for n in nolar if n in olgular and kalip.olgu_cumlesi(olgular[n])),
+                 None)
+    if metin:
+        return metin
+    if any(olgular[n].gizli for n in nolar if n in olgular):
+        return "Bu uyarının ayrıntısı gizli."
+    return UYARI_METNI.get(tur, "Bu uyarı için cümle yok; ayrıntı defterde.")
+
+
+def _uyarilar(db, oturum: str) -> dict:
+    satirlar = _uyari_satirlari(db, oturum)
+    onbellek: dict = {}
     liste = []
-    for oturum, tur, onem, olg, zaman in satirlar[:3]:
+    for u_oturum, tur, onem, olg, zaman in satirlar[:3]:
         nolar = json.loads(olg or "[]")
-        olgular = {o.no: o for o in olgulari_oku(db, oturum)}
-        metin = next((kalip.olgu_cumlesi(olgular[n]) for n in nolar if n in olgular and kalip.olgu_cumlesi(olgular[n])),
-                     None)
-        gizli = any(olgular[n].gizli for n in nolar if n in olgular)
         liste.append({"tur": tur, "onem": onem, "zaman": zaman, "olgular": nolar,
-                      "metin": metin or ("Bu uyarının ayrıntısı gizli." if gizli else
-                                         UYARI_METNI.get(tur, "Bu uyarı için cümle yok; ayrıntı defterde."))})
+                      "metin": _uyari_metni(db, u_oturum, tur, nolar, onbellek)})
     return {"liste": liste, "toplam": len(satirlar)}
+
+
+def _uyari_gruplari(db, oturum: str) -> list[dict]:
+    """Ayrıntılı mod: bütün uyarılar tür ve öneme göre gruplanır; her grupta sayı, son zaman, örnek cümle."""
+    gruplar: dict = {}
+    onbellek: dict = {}
+    for u_oturum, tur, onem, olg, zaman in _uyari_satirlari(db, oturum):
+        g = gruplar.get((tur, onem))
+        if g is None:
+            nolar = json.loads(olg or "[]")
+            g = gruplar[(tur, onem)] = {"tur": tur, "onem": onem, "sayi": 0, "son": zaman, "olgular": nolar,
+                                        "metin": _uyari_metni(db, u_oturum, tur, nolar, onbellek),
+                                        "canli": u_oturum.startswith("canli-")}
+        g["sayi"] += 1
+    return list(gruplar.values())
 
 
 def _ters(zaman: str | None) -> str:
@@ -262,7 +306,7 @@ def rapor(db: sqlite3.Connection, oturum: str, gizli: bool = True) -> dict:
         "ozet": [{k: c[k] for k in ("metin", "model", "denetim", "olgular")} for c in cumleler if c["yer"] == "pano"],
         "akis": _akis(db, olgular, cumleler, adresler),
         "kopru": _kopru(db, oturum, gizli),
-        "uyarilar": _uyarilar(db),
+        "uyarilar": _uyarilar(db, oturum),
         "sahiplik": _sahiplik(adresler, _isaretler(db)),
     }
     if not gizli:
@@ -306,7 +350,7 @@ def _hareketler(db, oturum: str, en_cok: int = 200) -> dict:
                         (bas, son, en_cok)):
         zaman, kaynak, hesap, ag, varlik, miktar, dolar, tur, karsi, supheli, durum, okuma, islem = r
         satirlar.append({"zaman": zaman, "kaynak": kaynak, "hesap": hesap, "ag": ag, "varlik": varlik,
-                         "miktar": f"{tr_sayi(Decimal(miktar))} {varlik}" if miktar else None,
+                         "miktar": f"{tr_sayi(Decimal(miktar))} {_birim(varlik)}" if miktar else None,
                          "dolar": f"{tr_sayi(Decimal(dolar))} $" if dolar not in (None, "") else None,
                          "tur": tur, "karsi": karsi, "supheli": bool(supheli), "durum": durum,
                          "kaynak_okuma": okuma, "islem": _kisa(islem)})
@@ -427,6 +471,7 @@ def ayrinti(db: sqlite3.Connection, oturum: str, gizli: bool = True, muhur_ayar:
         "oturum": oturum,
         "gizli": gizli,
         "hareketler": _hareketler(db, oturum),
+        "uyarilar": _uyari_gruplari(db, oturum),
         "cumleler": [{k: c[k] for k in ("yer", "metin", "model", "denetim", "olgular")} for c in _cumleler(db, oturum)],
         "bot": {"olgu": bot.alanlar if bot else None, "olgu_no": bot.no if bot else None, "iz_no": iz_no, "iz": iz,
                 "kayit": any("[kayıt]" in (a["arac"] or "") for a in iz)},

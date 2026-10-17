@@ -63,6 +63,16 @@ class Ayrinti(unittest.TestCase):
         self.assertTrue(all(x["dolar"] is None or x["dolar"].endswith("$") for x in h["satirlar"]))
         self.assertTrue(all(x["islem"] is None or len(x["islem"]) <= 14 for x in h["satirlar"]))
 
+    def test_uyari_gruplari(self):
+        g = self.ayrinti()["uyarilar"]
+        with closing(sqlite3.connect(self.db)) as db:
+            beklenen = dict(((t, o), n) for t, o, n in db.execute(
+                "SELECT tur, onem, count(*) FROM uyari WHERE oturum=? GROUP BY tur, onem", (OTURUM,)))
+        self.assertEqual({(x["tur"], x["onem"]): x["sayi"] for x in g}, beklenen)
+        if g:
+            self.assertTrue(all(x["metin"] for x in g))
+            self.assertEqual(g[0]["onem"], min((x["onem"] for x in g), key=veri.ONEM_SIRASI.get))
+
     def test_cumleler_denetim_etiketli(self):
         c = self.ayrinti()["cumleler"]
         self.assertTrue(c)

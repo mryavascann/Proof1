@@ -2,9 +2,11 @@
 import json
 import os
 import shutil
+import sqlite3
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -44,13 +46,34 @@ class Uclar(unittest.TestCase):
     def test_ayrinti(self):
         a = self.al(f"/api/ayrinti?oturum={OTURUM}")
         self.assertTrue(a["gizli"])
-        for anahtar in ("hareketler", "cumleler", "bot", "kanit", "muhur", "butce"):
+        for anahtar in ("hareketler", "uyarilar", "cumleler", "bot", "kanit", "muhur", "butce"):
             self.assertIn(anahtar, a)
         self.assertEqual(a["muhur"]["agent_id"], "263")
         self.assertEqual(a["muhur"]["dogrulama"], "bekliyor")
 
     def test_muhur_dogrula_yerel_kayit_yoksa(self):
         self.assertEqual(self.al("/api/muhur-dogrula?gun=2026-10-17")["durum"], "yerel_kayit_yok")
+
+
+class BosVeri(unittest.TestCase):
+    """Sabah işi henüz tablo yazmamışken pano çökmez; açık bir 503 iletisi döner."""
+
+    def test_tablo_yoksa_503(self):
+        dizin = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, dizin)
+        db = dizin / "bos.db"
+        sqlite3.connect(db).close()
+        httpd = sunucu.kur(db, "127.0.0.1", 0)
+        self.addCleanup(httpd.server_close)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.shutdown)
+        adres = f"http://127.0.0.1:{httpd.server_address[1]}"
+        for yol in ("/api/oturumlar", "/api/rapor", f"/api/rapor?oturum={OTURUM}", f"/api/ayrinti?oturum={OTURUM}"):
+            with self.subTest(yol=yol), self.assertRaises(urllib.error.HTTPError) as h:
+                urllib.request.urlopen(adres + yol, timeout=10)
+            self.assertEqual(h.exception.code, 503)
+            self.assertEqual(json.loads(h.exception.read())["hata"], "Veri kaynağı hazırlanmadı.")
+            h.exception.close()
 
 
 if __name__ == "__main__":
