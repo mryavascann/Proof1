@@ -97,6 +97,15 @@ Pano yalnız bir kişinin hesabına bağlı değildir. Herkes proof1'ı kendi bi
 
 Anahtar yalnız bu bilgisayardaki pano sunucusuna gider (yalnız `localhost`'tan kabul edilir), diske, veritabanına ya da kayda yazılmaz, tarama bitince bellekten atılır; form gönderilince boşaltılır, tarayıcıda saklanmaz. İşlem ya da çekim yetkisi olan anahtar okumaya başlamadan reddedilir (`account_get_config.perm`), ATK yine `--read-only` kipindedir. Her hesabın taraması ayrı veritabanına yazılır (`data/hesaplar/<kimlik>.db`, depoya girmez); bu taramalar Telegram'a mesaj göndermez ve ücretli anlatıcıyı çalıştırmaz (kalıp cümleler).
 
+## Herkese açık demo (Vercel)
+
+```bash
+python -m pano.statik                              # pano/_yayin/proof1/: örnek veriyle statik pano
+vercel deploy pano/_yayin/proof1 --prod --yes      # Vercel'e yayın
+```
+
+Demo yalnız depodaki anonim örnek veriyi gösterir (üstte “herkese açık demo” şeridi); canlı veri, anahtar ve kişisel tam adres yayına girmez. Sunucu olmadığı için “Kendi hesabını bağla” demoda kapalıdır ve kişiyi proof1'ı kendi bilgisayarında çalıştırmaya yönlendirir. Depoyu yeni indiren biri `python -m pano.sunucu` dediğinde, canlı veri yoksa pano örnek verinin `data/ornek.db` kopyasıyla açılır.
+
 ## Örnek veri ve canlı veri
 
 | | Örnek veri | Canlı veri |

@@ -24,6 +24,7 @@ import json
 import mimetypes
 import os
 import re
+import shutil
 import sqlite3
 import sys
 from contextlib import closing
@@ -233,6 +234,22 @@ def _env_yukle() -> None:
             os.environ[ad.strip()] = deger
 
 
+def veri_dosyasi(kok: Path, ortam) -> tuple[Path, str | None]:
+    """Sunulacak veri dosyası ve ekrana yazılacak not. PROOF1_DB verildiyse o, yoksa data/proof1.db. O da yoksa (depoyu
+    yeni indiren biri) örnek veritabanının data/ altındaki kopyası: pano açılır, kişi kendi hesabını panodan bağlar.
+    Depodaki örnek dosyanın kendisine yazılmaz ("bu adres senin mi?" yanıtı kopyaya gider)."""
+    if ortam.get("PROOF1_DB"):
+        return kok / ortam["PROOF1_DB"], None
+    canli = kok / "data" / "proof1.db"
+    if canli.exists():
+        return canli, None
+    kopya = kok / "data" / "ornek.db"
+    if not kopya.exists():
+        kopya.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(kok / "ortak" / "ornek" / "proof1_ornek.db", kopya)
+    return kopya, "Canlı veri yok: pano örnek veriyle açılıyor. Kendi hesabını panodaki menüden bağlayabilirsin."
+
+
 def ana(argv=None) -> int:
     from veri.ayar import konsol_utf8
     konsol_utf8()                      # Windows: '→' gibi karakterlerde çökmesin
@@ -242,11 +259,13 @@ def ana(argv=None) -> int:
     ayr.add_argument("--host", default="127.0.0.1")
     ayr.add_argument("--port", type=int, default=varsayilan_port)
     arg = ayr.parse_args(argv)
-    db = KOK_DIZIN / os.environ.get("PROOF1_DB", "data/proof1.db")
+    db, not_ = veri_dosyasi(KOK_DIZIN, os.environ)
     if not db.exists():
         print(f"Veri dosyası yok: {db}. PROOF1_DB ile gösterin (örnek: ortak/ornek/proof1_ornek.db).",
               file=sys.stderr)
         return 2
+    if not_:
+        print(not_)
     httpd = kur(db, arg.host, arg.port)
     print(f"proof1 pano: http://{'localhost' if arg.host == '127.0.0.1' else arg.host}:{arg.port}")
     try:

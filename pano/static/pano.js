@@ -7,6 +7,8 @@
   // GSAP CDN'den gelir. Yoksa (çevrimdışı) sayfa eksiksiz çizilir, yalnız giriş hareketi olmaz.
   var G = window.gsap || null;
   var ilkSorgu = new URLSearchParams(location.search);
+  // Herkese açık demo (Vercel, python -m pano.statik): sunucu yok, uçlar önceden üretilmiş JSON dosyaları, yalnız örnek veri.
+  var STATIK = document.documentElement.getAttribute("data-statik") === "1";
   var durum = {
     rapor: null, ayrinti: null, gizli: true, secili: null, dar: null, ilk: true, kopruKapsam: "servet", ertelenen: {},
     oturum: ilkSorgu.get("oturum"), hesap: ilkSorgu.get("hesap"), bantlar: [], geo: null, sekme: "ozet",
@@ -62,6 +64,7 @@
 
   // Her istek seçili hesabı taşır (kendi hesabını bağlayan kişinin panosu ayrı veritabanından okunur).
   function api(yol, params, secenek) {
+    if (STATIK) return statikVeri(yol, params, secenek);
     var q = new URLSearchParams(params || {});
     if (durum.hesap) q.set("hesap", durum.hesap);
     var s = q.toString();
@@ -70,6 +73,16 @@
         if (!y.ok) { var e = new Error(g.hata || "okunamadı"); e.kod = y.status; throw e; }
         return g;
       });
+    });
+  }
+
+  function statikVeri(yol, params, secenek) {
+    var g = params && params.gizli === "0" ? "0" : "1";
+    var dosya = { "/api/rapor": "rapor-" + g, "/api/ayrinti": "ayrinti-" + g }[yol];
+    if (!dosya || (secenek && secenek.method)) return Promise.reject(new Error("Demoda yok."));
+    return fetch("/veri/" + dosya + ".json", { cache: "no-store" }).then(function (y) {
+      if (!y.ok) throw new Error("Veri kaynağı hazırlanmadı.");
+      return y.json();
     });
   }
 
@@ -671,6 +684,7 @@
     k.appendChild(el("p", { sinif: "not", metin: "Yanıtın yalnız proof1'ın kendi kaydına yazılır; para taşınmaz." }));
   }
   function isaretle(s, sahip, durumP, sec) {
+    if (STATIK) { durumP.textContent = "Demoda yanıt kaydedilmez."; return; }
     Array.prototype.forEach.call(sec.querySelectorAll("button"), function (b) { b.disabled = true; });
     durumP.textContent = "Kaydediliyor…";
     api("/api/isaret", null, { method: "POST", headers: { "content-type": "application/json" },
@@ -764,7 +778,7 @@
     k.innerHTML = "";
     var iz = el("div", { sinif: "izgara" });
     var b1 = el("div", { sinif: "blok genis" });
-    b1.appendChild(el("h3", { metin: "Okuma çağrıları · OKX TR, ATK, OnchainOS, zincir" }));
+    b1.appendChild(el("h3", { metin: "Okuma çağrıları" }));
     var hata = kn.gruplar.reduce(function (s, g) { return s + g.hata; }, 0);
     b1.appendChild(el("p", { sinif: "olcu" }, [el("b", { metin: String(kn.toplam) }), "çağrı · " + hata + " hata",
       el("span", { sinif: "rozet-k " + (kn.salt_okunur_hepsi ? "tamam" : "hata"), metin: kn.salt_okunur_hepsi ? "hepsi salt okunur" : "salt okunur olmayan çağrı var" })]));
@@ -833,7 +847,7 @@
 
   /* ---------- hesaplar: herkes kendi hesabını görür ---------- */
   function hesaplariYukle() {
-    return fetch("/api/hesaplar", { cache: "no-store" }).then(function (y) { return y.ok ? y.json() : []; }).catch(function () { return []; })
+    return fetch(STATIK ? "/veri/hesaplar.json" : "/api/hesaplar", { cache: "no-store" }).then(function (y) { return y.ok ? y.json() : []; }).catch(function () { return []; })
       .then(function (liste) {
         durum.hesaplar = Array.isArray(liste) && liste.length ? liste : [{ hesap: "ana", ad: "Ana hesap" }];
         var secili = durum.hesaplar.filter(function (h) { return h.hesap === (durum.hesap || "ana"); })[0];
@@ -874,6 +888,7 @@
   var ADIMLAR = ["Anahtar denetleniyor", "Borsa okunuyor", "Zincirler taranıyor", "Dolar karşılıkları", "Botlar ve köprü", "Hazır"];
   function baglaAc() {
     $("bagla-perde").hidden = false;
+    if (STATIK) { $("bagla-form").hidden = true; $("bagla-ilerleme").hidden = true; $("bagla-demo").hidden = false; return; }
     $("bagla-form").hidden = !!durum.tarama;
     $("bagla-ilerleme").hidden = !durum.tarama;
     if (!durum.tarama) setTimeout(function () { $("bagla-form").elements.api_key.focus(); }, 60);
@@ -965,6 +980,12 @@
   });
   // Yedek ekran kaydı için: ?kayit=1 → ekranda kalıcı "KAYIT" şeridi (canlı ile karıştırılmasın).
   if (ilkSorgu.get("kayit") === "1") { $("kayit-serit").hidden = false; document.title = "proof1 · kayıt"; }
+  if (STATIK) {
+    $("kayit-serit").textContent = "HERKESE AÇIK DEMO · anonim örnek veri";
+    $("kayit-serit").classList.add("demo");
+    $("kayit-serit").hidden = false;
+    durum.oturum = null;                   // demoda tek rapor var
+  }
   if (window.ResizeObserver) {
     new ResizeObserver(function () {
       var w = $("akis").clientWidth;

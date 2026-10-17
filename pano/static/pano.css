@@ -93,6 +93,13 @@ body.taraniyor .hesap-nokta { background: var(--altin); box-shadow: 0 0 12px var
   background: var(--kirmizi); color: #1a0d0f;
 }
 
+.kayit-serit.demo { background: var(--altin); color: #1b1309; }
+.bagla-demo p { margin: 0 0 14px; color: var(--soluk); }
+.bagla-demo pre { margin: 0 0 18px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--cizgi-2); background: rgba(0, 0, 0, .35); overflow-x: auto; }
+.bagla-demo code { font: 13px/1.7 var(--mono); color: var(--altin-acik); }
+.bagla-demo .birincil { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 999px; }
+.bagla-demo .birincil:hover { text-decoration: none; }
+
 /* ---------- sade: sahne ---------- */
 #sade { flex: 1; }
 .sahne { max-width: 1180px; margin: 0 auto; padding: clamp(0px, 1.2vh, 18px) clamp(16px, 4vw, 40px) 40px; text-align: center; }
