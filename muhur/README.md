@@ -34,3 +34,13 @@ cd muhur
 set -a; . ../.env; set +a
 forge script script/Kaydol.s.sol --rpc-url fuji --broadcast
 ```
+
+`FUJI_RPC_URL` için `https://avalanche-fuji-c-chain-rpc.publicnode.com` kullanıyoruz: resmi `api.avax-test.network` etkinlik ağında hız sınırına (Cloudflare 1015) takıldı. Bu RPC bekleyen blokta durum vermediği için `forge script --broadcast` gaz tahmininde düşebiliyor. 17 Ekim kaydı şu yolla yapıldı (önce `eth_call` ile önizleme):
+
+```bash
+URI=$(forge script script/Kaydol.s.sol --sig 'agentURI()' --json | …)   # betiğin ürettiği data: URI
+cast send 0x8004A818BFB912233c491871b3d84c89A494BD9e 'register(string)' "$URI" \
+  --private-key "$PROOF1_FUJI_PRIVATE_KEY" --rpc-url "$FUJI_RPC_URL" --gas-limit 2000000
+```
+
+Sonuç: agentId **263**, sahibi proof1 test cüzdanı. Ayrıntı: `sunum/README-katki.md`.

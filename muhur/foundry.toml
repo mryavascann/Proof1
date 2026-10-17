@@ -7,4 +7,4 @@ libs = ["lib"]
 fs_permissions = [{ access = "read", path = "./kayit" }]
 
 [rpc_endpoints]
-fuji = "https://api.avax-test.network/ext/bc/C/rpc"
+fuji = "${FUJI_RPC_URL}"
