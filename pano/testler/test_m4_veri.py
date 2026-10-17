@@ -144,12 +144,12 @@ class Rapor(unittest.TestCase):
         with closing(sqlite3.connect(yol)) as db:
             db.execute("INSERT INTO uyari (oturum, zaman, tur, onem, olgular) VALUES "
                        "('sabah-2026-10-01', '2026-10-01T07:00:00Z', 'aciklanamayan', 'acil', '[]'),"
-                       "('canli-42', '2026-10-17T12:00:00Z', 'bot_uyusmazlik', 'acil', '[]'),"
+                       "('canli-42', '2026-10-17T23:00:00Z', 'bot_uyusmazlik', 'acil', '[]'),"
                        "('canli-41', '2026-10-10T12:00:00Z', 'bot_uyusmazlik', 'acil', '[]')")
             db.commit()
         u = self.rapor(db_yolu=yol)["uyarilar"]
         self.assertEqual(u["toplam"], sorgu("SELECT count(*) FROM uyari WHERE oturum=?", OTURUM)[0][0] + 1)
-        self.assertEqual(u["liste"][0]["zaman"], "2026-10-17T12:00:00Z")
+        self.assertEqual(u["liste"][0]["zaman"], "2026-10-17T23:00:00Z")
 
     def test_kopru_try_tl_yazilir(self):
         with closing(sqlite3.connect(":memory:")) as db:

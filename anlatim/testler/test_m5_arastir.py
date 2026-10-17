@@ -154,13 +154,32 @@ class Arastir(unittest.TestCase):
         self.assertEqual(istemci.istekler, [])
         self.assertIn("plan", self.iz(iz_no)[0]["dusunce"].lower())
 
-    def test_bot_kimligi_yoksa_durust(self):
+    def bos_araclar(self):
         bos = arastir.KayitliAraclar.__new__(arastir.KayitliAraclar)
         bos.algo_id, bos.yanitlar, bos.etiket = None, {}, "kayıt"
-        iz_no = arastir.arastir(self.db, OTURUM, bos, istemci=None)
+        return bos
+
+    def test_bot_kimligi_yoksa_durust(self):
+        with closing(sqlite3.connect(self.db)) as db:  # örnek veride artık algoId var; yokluğu canlandırılır
+            db.execute("UPDATE olgu SET alanlar=json_remove(alanlar, '$.algoId') WHERE tur='bot_uyusmazlik'")
+            db.commit()
+        iz_no = arastir.arastir(self.db, OTURUM, self.bos_araclar(), istemci=None)
         adimlar = self.iz(iz_no)
         self.assertEqual(len(adimlar), 1)
         self.assertIn("bot kimliği", adimlar[0]["sonuc"])
+
+    def test_olgudaki_algoId_kullanilir(self):
+        with closing(sqlite3.connect(self.db)) as db:
+            r = db.execute("SELECT json_extract(alanlar, '$.algoId') FROM olgu WHERE oturum=? AND tur='bot_uyusmazlik'",
+                           (OTURUM,)).fetchone()
+        if not r or not r[0]:
+            self.skipTest("örnek olguda algoId yok")
+        araclar, gelen = self.bos_araclar(), []
+        araclar.cagir = lambda arac, arg: gelen.append(arg) or (_ for _ in ()).throw(arastir.AracHatasi("kayit_yok", "kayıtlı yanıt yok"))
+        iz_no = arastir.arastir(self.db, OTURUM, araclar, istemci=None)
+        self.assertNotIn("bot kimliği", self.iz(iz_no)[0]["sonuc"] or "")
+        grid = [a for a in gelen if a.get("algoOrdType") == "grid"]  # account_get_bills bot kimliği almaz
+        self.assertTrue(grid and all(a["algoId"] == r[0] for a in grid))
 
 
 if __name__ == "__main__":
