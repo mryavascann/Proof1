@@ -1,0 +1,5 @@
+# Foundry çıktıları ve bağımlılık (kurulum: README)
+out/
+cache/
+lib/
+broadcast/
