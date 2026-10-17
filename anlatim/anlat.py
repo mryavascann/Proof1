@@ -219,8 +219,25 @@ def ana(argv=None) -> int:
     if os.environ.get("ANTHROPIC_API_KEY"):
         import anthropic
         istemci = anthropic.Anthropic()
-    for s in anlat(db, arg.oturum, istemci, kullanici=os.environ.get("PROOF1_KULLANICI", "bugra")):
+    kullanici = os.environ.get("PROOF1_KULLANICI", "bugra")
+    for s in anlat(db, arg.oturum, istemci, kullanici=kullanici):
         print(f"[{s['yer']}] {s['denetim']} · {s['model']} · {s['metin']}")
+    # Bot uyuşmazlığı varsa araştırma izi (cümlelerden sonra; Telegram'ı geciktirmez).
+    #   PROOF1_ARASTIR=canli → ATK --read-only (alt hesap) · kayit → kayıtlı yanıtlar · boş → yapılmaz
+    kip = os.environ.get("PROOF1_ARASTIR", "").strip().lower()
+    if kip in ("canli", "kayit"):
+        from anlatim import arastir
+        try:
+            if kip == "kayit":
+                yol = os.environ.get("PROOF1_ARASTIR_KAYIT") or str(KOK_DIZIN / "anlatim" / "kayit" / "bot_16_ekim.json")
+                arastir.arastir(db, arg.oturum, arastir.KayitliAraclar(yol), istemci, kullanici)
+            else:
+                from veri import ayar
+                from veri.atk import Atk
+                with closing(sqlite3.connect(db)) as cdb, Atk(ayar.okx_kimlik("alt"), cdb, arg.oturum) as atk:
+                    arastir.arastir(db, arg.oturum, arastir.CanliAraclar(atk), istemci, kullanici)
+        except Exception as e:  # araştırma düşerse cümleler yine yazılmış olur
+            print(f"Araştırma tamamlanamadı: {type(e).__name__}", file=sys.stderr)
     return 0
 
 

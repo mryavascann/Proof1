@@ -1,0 +1,117 @@
+{
+ "_aciklama": "16 Ekim 16:00 USDT/TRY grid botunun kayıtlı ATK yanıtları (gerçek satırlar, kimlikler kısaltılmış). Kaynak: veri/testler/test_b2_defter.py ve test_b5_bot.py (Buğra). grid_get_sub_orders kaydı yok.",
+ "algoId": "4014895767398817792",
+ "yanitlar": {
+  "grid_get_order_details": {
+   "data": [
+    {
+     "algoId": "4014895767398817792",
+     "instId": "USDT-TRY",
+     "cTime": "1792155618042",
+     "uTime": "1792155628377",
+     "investment": "300",
+     "totalPnl": "99.89115517772",
+     "stopType": "2",
+     "state": "stopped",
+     "gridNum": "3"
+    }
+   ]
+  },
+  "account_get_bills": {
+   "data": [
+    {
+     "billId": "b1",
+     "ts": "1792155618044",
+     "type": "12",
+     "subType": "202",
+     "ccy": "TRY",
+     "balChg": "-300.00000000000",
+     "bal": "154.05489915222",
+     "fee": "",
+     "sz": "-300"
+    },
+    {
+     "billId": "b2",
+     "ts": "1792155618044",
+     "type": "12",
+     "subType": "200",
+     "ccy": "TRY",
+     "balChg": "300",
+     "bal": "300",
+     "fee": "",
+     "sz": "300"
+    },
+    {
+     "billId": "b3",
+     "ts": "1792155618046",
+     "type": "2",
+     "subType": "1",
+     "ccy": "USDT",
+     "balChg": "2.02782894",
+     "bal": "2.02782894",
+     "fee": "-0.00447106",
+     "sz": "2.0323",
+     "instId": "USDT-TRY",
+     "ordId": "o1"
+    },
+    {
+     "billId": "b4",
+     "ts": "1792155618046",
+     "type": "2",
+     "subType": "2",
+     "ccy": "TRY",
+     "balChg": "-100.3326187",
+     "bal": "199.6673813",
+     "fee": "0",
+     "sz": "100.3326187",
+     "instId": "USDT-TRY",
+     "ordId": "o1"
+    },
+    {
+     "billId": "b5",
+     "ts": "1792155628376",
+     "type": "12",
+     "subType": "200",
+     "ccy": "TRY",
+     "balChg": "199.66738130000",
+     "bal": "353.72228045222",
+     "fee": "",
+     "sz": "199.6673813"
+    },
+    {
+     "billId": "b6",
+     "ts": "1792155628376",
+     "type": "12",
+     "subType": "202",
+     "ccy": "TRY",
+     "balChg": "-199.6673813",
+     "bal": "0",
+     "fee": "",
+     "sz": "-199.6673813"
+    },
+    {
+     "billId": "b7",
+     "ts": "1792155628376",
+     "type": "12",
+     "subType": "200",
+     "ccy": "USDT",
+     "balChg": "2.027828940000000",
+     "bal": "5.381161091449046",
+     "fee": "",
+     "sz": "2.02782894"
+    },
+    {
+     "billId": "b8",
+     "ts": "1792155628376",
+     "type": "12",
+     "subType": "202",
+     "ccy": "USDT",
+     "balChg": "-2.02782894",
+     "bal": "0",
+     "fee": "",
+     "sz": "-2.02782894"
+    }
+   ]
+  }
+ }
+}
