@@ -6,6 +6,8 @@
 
 Agentic Hackathon Ankara · 17 Ekim 2026 · Buğra & Merve
 
+**Canlı demo (anonim örnek veri):** https://proof1-ivory.vercel.app · **Avalanche Fuji mühür sözleşmesi:** [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · ERC-8004 agentId **263**
+
 proof1, birkaç yere dağılmış parasını bot da kullanarak yöneten OKX TR kullanıcısı içindir. Adresleri borsanın çekim kaydından kendisi bulur (kullanıcı adres yazmaz, cüzdan bağlamaz), zincirde paranın neye dönüştüğünü cümleyle anlatır, her sabah 09:00'da Telegram'a yazar ve bot kaydı ile hesaba dönen para uyuşmadığında hemen uyarır.
 
 ## Salt okuma (mimari kural)
