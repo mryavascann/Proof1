@@ -57,6 +57,26 @@ def _kapanis_yaz(db, okuyucu, adres_id: int, adres: str, ag):
                (adres_id, ag.anahtar, ag.yerel, str(defter), str(zincir), str(zincir - defter), simdi()))
 
 
+def _yenile(db, adres_id: int, ag: str, h: list[dict], txler: set):
+    """Yeniden okunan (adres, ağ): artık üretilmeyen eski zincir satırı silinir, tutarı değişen güncellenir.
+
+    `defter.yaz` var olan satırın tutarını değiştirmez; eksik veriyle yapılmış eski taramanın neti (ör. yalnız iç işlemdeki
+    iade görülüp `al` yazılmış, tam veride aynı işlem `ver`) böyle kalırsa defter zincirle kapanmaz.
+    """
+    from decimal import Decimal
+    yeni = {x["ham_kimlik"]: x["miktar"] for x in h}
+    for r in db.execute("SELECT id, ham_kimlik, miktar FROM hareket WHERE kaynak='zincir' AND adres_id=? AND ag=?",
+                        (adres_id, ag)).fetchall():
+        m = yeni.get(r["ham_kimlik"])
+        if m is None:
+            db.execute("DELETE FROM hareket WHERE id=?", (r["id"],))
+        elif Decimal(m) != Decimal(r["miktar"]):
+            db.execute("UPDATE hareket SET miktar=?, dolar=NULL WHERE id=?", (m, r["id"]))      # eski dolar eski tutarın
+    for (tx,) in db.execute("SELECT tx FROM _olay WHERE adres_id=? AND ag=?", (adres_id, ag)).fetchall():
+        if tx not in txler:
+            db.execute("DELETE FROM _olay WHERE adres_id=? AND ag=? AND tx=?", (adres_id, ag, tx))
+
+
 def ag_durumlari(db) -> list[dict]:
     _tablo(db)
     return [dict(r) for r in db.execute(
@@ -121,6 +141,7 @@ def tara(db, okuyucu, cekimler, yatirmalar, borsa_adresleri: set | None = None) 
                                     et = _karsi_ekle(db, o.karsi_adres, ag, r["etiket"], o)
                                     tum[o.karsi_adres.lower()] = et
                         h = hareketlere(olaylar, r["id"], ag.anahtar, kaynak, etiketle)
+                        _yenile(db, r["id"], ag.anahtar, h, {o.tx for o in olaylar})
                         sonuc.yeni_hareket += hyaz(db, h)
                         db.executemany("INSERT OR REPLACE INTO _olay VALUES (?,?,?,?,?,?,?)",
                                        [(r["id"], ag.anahtar, o.tx, o.ts, o.tur, o.islev, o.neden) for o in olaylar])
