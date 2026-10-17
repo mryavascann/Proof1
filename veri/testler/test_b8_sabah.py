@@ -118,9 +118,11 @@ class AnlaticiZamanlama(unittest.TestCase):
         pano = db.execute("SELECT COUNT(*) FROM cumle WHERE yer='pano'").fetchone()[0]
         self.assertEqual(pano, 1, "anlatıcı öldürülmemeli; pano cümleleri sonra da yazılabilmeli")
 
-    def test_anlaticinin_dogrulanmis_kalibi_kabul(self):
+    def test_anlaticinin_kalibi_yerine_bizim_kalip(self):
+        # Anlatıcının modeli denetimden geçemeyip kalıba düştüyse kendi kalıbımız (devir metnindeki biçim) gider.
         db, m, _ = self._hazirla(denetim="kalip")
-        self.assertEqual(m.metin, "Telegram cümlesi.")
+        self.assertEqual(m.kaynak, "kalip")
+        self.assertNotEqual(m.metin, "Telegram cümlesi.")
 
 
 class YalnizGonder(unittest.TestCase):
