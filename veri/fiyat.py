@@ -54,6 +54,9 @@ class Fiyatci:
     def dolar(self, ccy: str, ts_ms: int) -> Decimal | None:
         if ccy in SABIT:
             return SABIT[ccy]
+        if ccy == "TRY":
+            p = self.mum("USDT-TRY", ts_ms)
+            return (Decimal(1) / p) if p else None
         return self.mum(f"{ccy}-USDT", ts_ms)
 
     def try_(self, ccy: str, ts_ms: int) -> Decimal | None:
