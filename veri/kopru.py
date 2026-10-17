@@ -88,6 +88,8 @@ def kategori(h, kapsam: str, benim_etiket: set, benim_tx: set, okunamayan: set) 
             return "aktarim" if karsi in benim_etiket else "disari"
         if tur == "yatirma":
             return "aktarim" if (kapsam == "servet" and tx in benim_tx) or karsi in benim_etiket else "iceri"
+        if tur == "giris":
+            return "iceri"                           # ör. Lira Boost kazancı
         return "aciklanamayan"
     # cüzdan satırları (yalnız servet kapsamında)
     if tur == "giris":
@@ -177,8 +179,7 @@ def kopru_kur(db, gun: str, bas_ms: int, bit_ms: int, fiyat, fotolar: dict | Non
             kalemler["baslangic"].varlik[v] = q
             kalemler["baslangic"].dolar += q * pb
             if q and p_bit[v] != pb:
-                _ekle(kalemler["fiyat"].varlik, v, q)
-                kalemler["fiyat"].dolar += q * (p_bit[v] - pb)
+                kalemler["fiyat"].dolar += q * (p_bit[v] - pb)     # coin miktarı tutulmaz: o, dünkü seviyedir (gizli)
         for v, q in bit.items():
             if v not in fiyatsiz:
                 kalemler["bitis"].varlik[v] = q

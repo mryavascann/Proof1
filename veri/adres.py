@@ -73,7 +73,8 @@ def adresleri_cikar(cekimler: list[Kayit], yatirmalar: list[Kayit], gonderen) ->
 
 def yaz(db, kartlar: list[AdresKarti], cekimler: list[Kayit] | None = None):
     """adres tablosunu günceller; çekim hareketlerinin `karsi` alanına etiketi yazar."""
-    db.execute("UPDATE adres SET etiket = etiket || '~' || id")       # yeniden etiketlemede çakışma olmasın
+    # Yalnız çekim adresleri yeniden etiketlenir; KARSI_n (çekim almamış) satırlar ve kimlikleri korunur.
+    db.execute("UPDATE adres SET etiket = etiket || '~' || id WHERE cekim_sayisi > 0")
     for a in kartlar:
         ag = next(ag_bul(c.chain) for c in (cekimler or []) if normal(c.adres) == a.adres) if cekimler else ag_bul(a.ag)
         db.execute(
@@ -86,7 +87,7 @@ def yaz(db, kartlar: list[AdresKarti], cekimler: list[Kayit] | None = None):
              bicim.tarih(a.ilk_ms), bicim.tarih(a.son_ms), gezgin_url(ag, a.adres)))
         for kimlik in a.cekim_kimlikleri:
             db.execute("UPDATE hareket SET karsi=? WHERE ham_kimlik IN (?, ?)", (a.etiket, f"cekim:{kimlik}", f"cekim:{kimlik}:ucret"))
-    db.execute("DELETE FROM adres WHERE etiket LIKE '%~%'")
+    db.execute("DELETE FROM adres WHERE etiket LIKE '%~%' AND cekim_sayisi > 0")
     db.commit()
 
 

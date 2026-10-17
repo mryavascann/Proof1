@@ -1,4 +1,5 @@
 """Dolar fiyatı: OKX'te işlem görenler için mum geçmişi (ATK market_get_candles). Fiyat yoksa None."""
+import time
 from decimal import Decimal
 
 from veri.atk import Atk, AtkHata, satirlar
@@ -13,6 +14,7 @@ class Fiyatci:
         self.db = db
         self._bellek: dict[tuple[str, int], Decimal | None] = {}
         self._lh: dict[tuple[str, int], tuple[Decimal, Decimal]] = {}
+        self._liste: set | None = None
         if db is not None:
             db.execute("CREATE TABLE IF NOT EXISTS _fiyat (cift TEXT, saat_ms INTEGER, fiyat TEXT, PRIMARY KEY (cift, saat_ms))")
 
@@ -32,27 +34,42 @@ class Fiyatci:
             self.db.commit()
 
     def mum(self, cift: str, ts_ms: int, bar: str = "1H") -> Decimal | None:
-        """ts'yi içeren mumun (1H ya da 1m) kapanışı."""
-        aralik = SAAT_MS if bar == "1H" else 60_000
+        """ts'yi içeren mumun (1H, 1D ya da 1m) kapanışı. Kaçırılan istekte 100 mum birden önbelleğe alınır."""
+        aralik = {"1H": SAAT_MS, "1D": 24 * SAAT_MS, "1m": 60_000}[bar]
         saat = int(ts_ms) // aralik * aralik
+        if bar == "1D":
+            saat = (int(ts_ms) + 8 * SAAT_MS) // aralik * aralik - 8 * SAAT_MS   # OKX günlük mumu UTC+8 00:00'da açılır
         anahtar = cift if bar == "1H" else f"{cift}@{bar}"
         var, f = self._onbellek(anahtar, saat)
         if var:
             return f
         try:
-            veri = self.atk.cagir("market_get_candles", {"instId": cift, "bar": bar, "after": str(saat + aralik), "limit": 1},
+            veri = self.atk.cagir("market_get_candles", {"instId": cift, "bar": bar, "after": str(saat + aralik), "limit": 100},
                                   alanlar=["ts", "c"])
         except AtkHata:
-            self._yaz(anahtar, saat, None)
-            return None
+            return None                       # geçici hata: önbelleğe yazılmaz, sonra yeniden denenir
         f = None
         for m in satirlar(veri):
             # OKX mumu: [ts, o, h, l, c, ...] ya da {"ts":..,"c":..}
             ts, kapanis = (m[0], m[4]) if isinstance(m, list) else (m.get("ts"), m.get("c") or m.get("close"))
-            if ts is not None and int(ts) == saat and kapanis is not None:
+            if ts is None or kapanis is None:
+                continue
+            if int(ts) == saat:
                 f = Decimal(str(kapanis))
+            elif (anahtar, int(ts)) not in self._bellek:
+                self._yaz(anahtar, int(ts), Decimal(str(kapanis)))
         self._yaz(anahtar, saat, f)
         return f
+
+    def listede(self, ccy: str) -> bool:
+        """OKX TR'de ccy-USDT spot çifti var mı (bir kez okunur)."""
+        if self._liste is None:
+            try:
+                self._liste = {r.get("instId") for r in satirlar(self.atk.cagir("market_get_instruments", {"instType": "SPOT"},
+                                                                                   alanlar=["instId"]))}
+            except AtkHata:
+                return False                  # liste okunamadı: bir dahaki çağrıda yeniden denenir
+        return f"{ccy}-USDT" in self._liste
 
     def aralik(self, cift: str, ts_ms: int) -> tuple[Decimal, Decimal] | None:
         """ts'yi içeren 1 dakikalık mumun (en düşük, en yüksek) fiyatı."""
@@ -69,7 +86,7 @@ class Fiyatci:
             veri = self.atk.cagir("market_get_candles", {"instId": cift, "bar": "1m", "after": str(dk + 60_000), "limit": 1},
                                   alanlar=["ts", "h", "l"])
         except AtkHata:
-            veri = []
+            return None                       # geçici hata: önbelleğe yazılmaz
         sonuc = None
         for m in satirlar(veri):
             ts, h, l = (m[0], m[2], m[3]) if isinstance(m, list) else (m.get("ts"), m.get("h"), m.get("l"))
@@ -84,10 +101,13 @@ class Fiyatci:
     def dolar(self, ccy: str, ts_ms: int) -> Decimal | None:
         if ccy in SABIT:
             return SABIT[ccy]
+        bar = "1D" if time.time() * 1000 - int(ts_ms) > 7 * 24 * SAAT_MS else "1H"
         if ccy == "TRY":
-            p = self.mum("USDT-TRY", ts_ms)
+            p = self.mum("USDT-TRY", ts_ms, bar)
             return (Decimal(1) / p) if p else None
-        return self.mum(f"{ccy}-USDT", ts_ms)
+        if not self.listede(ccy):
+            return None                       # OKX'te fiyatı yok: uydurulmaz
+        return self.mum(f"{ccy}-USDT", ts_ms, bar)
 
     def try_(self, ccy: str, ts_ms: int) -> Decimal | None:
         if ccy == "TRY":

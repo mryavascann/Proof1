@@ -30,10 +30,13 @@ class B0Iskelet(unittest.TestCase):
                 adlar[m.group(1)] = m.group(2).split("#")[0].strip()
         for ad in ["OKX_TR_ANA_API_KEY", "OKX_TR_ALT_SECRET_KEY", "ONCHAINOS_API_KEY",
                    "ETHERSCAN_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-                   "ANTHROPIC_API_KEY", "PROOF1_FUJI_PRIVATE_KEY", "PANO_URL"]:
+                   "ANTHROPIC_API_KEY", "PROOF1_FUJI_PRIVATE_KEY", "PANO_URL", "ANLATICI_KOMUT",
+                   "FUJI_RPC_URL", "PROOF1_AGENT_ID", "PROOF1_SEAL_ADDRESS", "PROOF1_TUZ", "PROOF1_USD_TRY",
+                   "PROOF1_KULLANICI"]:
             self.assertIn(ad, adlar)
+        gizli_olmayan = ("PANO_URL", "PROOF1_DB", "ANLATICI_KOMUT", "FUJI_RPC_URL", "PROOF1_USD_TRY", "PROOF1_KULLANICI")
         for ad, deger in adlar.items():
-            if ad not in ("PANO_URL", "PROOF1_DB"):
+            if ad not in gizli_olmayan:
                 self.assertEqual(deger, "", f"{ad} örnekte boş olmalı")
 
     def test_izlenen_dosyalarda_sir_yok(self):

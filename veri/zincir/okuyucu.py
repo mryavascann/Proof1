@@ -1,6 +1,8 @@
 """Zincir okuyucu: ağın okuyucularını sırayla dener (OnchainOS → Etherscan → Routescan → TronGrid).
 
 Hiçbiri okuyamazsa `Okunamadi` yükselir; çağıran adresi “bu ağda yalnız çekimi görüyorum” diye işaretler.
+Gezginin okuduğu yerel coin defteri zincirdeki bakiyeyle kapanmazsa, ağın arşiv düğümü varsa `onar` farkın doğduğu
+blokları bulup gezginin kaçırdığı işlemleri ve yanlış ücretleri düzeltir.
 Ham cevaplar `_zincir_ham` tablosunda önbelleklenir (aynı adres kısa sürede yeniden okunmaz).
 """
 import json
@@ -20,9 +22,12 @@ class Okunamadi(Exception):
 
 
 class ZincirOkuyucu:
-    def __init__(self, db=None, oturum: str | None = None):
+    def __init__(self, db=None, oturum: str | None = None, onbellek: bool = True, arsiv: bool = True):
         self.db = db
         self.oturum = oturum
+        self.onbellek = onbellek
+        self.onchainos_kapali = False      # ücretsiz kota dolunca bu koşu boyunca çağrılmaz (x402 ödemesi yok)
+        self.arsiv = arsiv
         self.gezginler = {t: GezginApi(t, db, oturum) for t in ("etherscan", "routescan")}
         self._onchainos = None
         self._tron = None
@@ -62,7 +67,7 @@ class ZincirOkuyucu:
     def okuyucular(self, ag: Ag) -> list[str]:
         uygun = []
         for o in ag.okuyucu:
-            if o == "onchainos" and self.onchainos.hazir and ag.onchainos:
+            if o == "onchainos" and not self.onchainos_kapali and self.onchainos.hazir and ag.onchainos:
                 uygun.append(o)
             elif o in self.gezginler and self.gezginler[o].destekler(ag):
                 uygun.append(o)
@@ -70,8 +75,19 @@ class ZincirOkuyucu:
                 uygun.append(o)
         return uygun
 
-    def oku(self, adres: str, ag: Ag, onbellek: bool = True) -> Bacaklar:
-        if onbellek:
+    def bakiye(self, adres: str, ag: Ag):
+        """Yerel coin bakiyesi (2. katman): defterin zincirle kapanış denetimi için. Okunamazsa None."""
+        for o in ("etherscan", "routescan"):
+            g = self.gezginler[o]
+            if g.destekler(ag):
+                try:
+                    return g.bakiye(adres, ag)
+                except (IOError, ValueError):
+                    continue
+        return None
+
+    def oku(self, adres: str, ag: Ag, onbellek: bool | None = None) -> Bacaklar:
+        if self.onbellek if onbellek is None else onbellek:
             b = self._bellek(adres, ag)
             if b is not None:
                 return b
@@ -86,20 +102,36 @@ class ZincirOkuyucu:
                 else:
                     b = self.gezginler[o].islemler(adres, ag)
             except (IOError, ValueError, KeyError) as e:      # sonraki okuyucuya geç
+                from veri.zincir.onchainos import KotaDoldu
+                if isinstance(e, KotaDoldu):
+                    self.onchainos_kapali = True
                 continue
+            if o in self.gezginler and self.arsiv:
+                self._onar(adres, ag, b)
             self._sakla(adres, ag, b)
             return b
         raise Okunamadi(ag, denenen)
 
+    def _onar(self, adres: str, ag: Ag, b: Bacaklar):
+        from veri.zincir.onar import Arsiv, onar
+        arsiv = Arsiv(ag, self.db, self.oturum)
+        if not arsiv.hazir:
+            return
+        try:
+            b.onarim = onar(adres, ag, b, arsiv)
+        except (IOError, ValueError, KeyError, TypeError):
+            pass                                   # düğüm okunamadı: gezginin verisi olduğu gibi kalır (fark görünür)
+
 
 def _paketle(b: Bacaklar) -> dict:
-    return {"bacak": [[x.tx, x.ts, x.kimden, x.kime, x.varlik, str(x.miktar), x.sozlesme, x.token_adi] for x in b],
-            "meta": [[m.tx, m.ts, m.baslatan, m.hedef, str(m.ucret), m.islev, m.basarili] for m in b.meta.values()]}
+    return {"bacak": [[x.tx, x.ts, x.kimden, x.kime, x.varlik, str(x.miktar), x.sozlesme, x.token_adi, x.blok] for x in b],
+            "meta": [[m.tx, m.ts, m.baslatan, m.hedef, str(m.ucret), m.islev, m.basarili, m.blok] for m in b.meta.values()]}
 
 
 def _ac(p: dict, kaynak: str) -> Bacaklar:
+    """Eski önbellek satırlarında blok yok (0 sayılır)."""
     from decimal import Decimal
-    b = Bacaklar(Bacak(t, ts, f, to, v, Decimal(m), s, ad) for t, ts, f, to, v, m, s, ad in p["bacak"])
-    b.meta = {t: Meta(t, ts, ba, h, Decimal(u), i, ok) for t, ts, ba, h, u, i, ok in p["meta"]}
+    b = Bacaklar(Bacak(*x[:5], Decimal(x[5]), *x[6:]) for x in p["bacak"])
+    b.meta = {x[0]: Meta(*x[:4], Decimal(x[4]), *x[5:]) for x in p["meta"]}
     b.kaynak = kaynak
     return b

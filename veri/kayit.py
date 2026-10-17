@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 GIZLI_ANAHTAR = re.compile(r"(key|secret|pass|sign|token|imza)", re.I)
 EVM = re.compile(r"0x[0-9a-fA-F]{40}")
 TRON = re.compile(r"\bT[1-9A-HJ-NP-Za-km-z]{33}\b")
-TXID = re.compile(r"0x[0-9a-fA-F]{64}")
+TXID = re.compile(r"\b(?:0x)?[0-9a-fA-F]{64}\b")       # EVM (0x…) ve Tron (öneksiz) işlem kimliği
 
 
 def iso(an: datetime) -> str:

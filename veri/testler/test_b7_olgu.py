@@ -99,6 +99,19 @@ class Olgular(unittest.TestCase):
         for no in dayanak:
             self.assertEqual(self.olgular[no]["gizli"], 0, "kalıp cümle gizli olgu kullanmaz")
 
+    def test_banka_cekimi_ozete_girmez(self):
+        db = dbm.baglan(":memory:")
+        cek = [Kayit("cekim", "w1", 1791721943000, "AVAX", "AVAX-Avalanche C-Chain", Decimal("1"), Decimal("0"), "AVAX", A, "0xc1", "2")]
+        hyaz(db, cekim_hareketleri(cek))
+        db.execute("UPDATE hareket SET karsi='BENIM_1'")
+        from veri.defter import fonlama_hareketleri
+        hyaz(db, fonlama_hareketleri([{"billId": "b", "ts": "1791721943000", "type": "2", "ccy": "TRY", "balChg": "-500"}]))
+        olgulari_kur(db, "x", "2026-10-12", fiyat=lambda v, ts: Decimal(1))
+        o = json.loads(db.execute("SELECT alanlar FROM olgu WHERE oturum='x' AND tur='cekim_ozet'").fetchone()[0])
+        self.assertEqual((o["cekim_sayisi"], o["adres_sayisi"]), ("1", "1"))
+        aglar = [json.loads(r[0])["ag"] for r in db.execute("SELECT alanlar FROM olgu WHERE oturum='x' AND tur='ag_payi'")]
+        self.assertEqual(aglar, ["Avalanche"])
+
     def test_sayi_alan_reddedilir(self):
         y = OlguYazici(dbm.baglan(":memory:"), "x")
         with self.assertRaises(TypeError):

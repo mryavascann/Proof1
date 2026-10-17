@@ -1,6 +1,7 @@
 """Tek işlemin göndereni: EVM ağlarında JSON-RPC (gerekirse Routescan vekili), Tron'da TronGrid. Yalnız okuma."""
 import hashlib
 import json
+import time
 
 import requests
 
@@ -8,14 +9,14 @@ from veri import hiz
 from veri.aglar import Ag
 from veri.kayit import cagri_kaydi
 
-RPC = {
-    "ethereum": "https://ethereum-rpc.publicnode.com",
-    "arbitrum": "https://arb1.arbitrum.io/rpc",
-    "polygon": "https://polygon-bor-rpc.publicnode.com",
-    "avalanche": "https://api.avax.network/ext/bc/C/rpc",
-    "base": "https://mainnet.base.org",
-    "bnb": "https://bsc-dataseed.binance.org",
-    "optimism": "https://mainnet.optimism.io",
+RPC = {   # sırayla denenir (ilki 403/5xx verirse yedeği)
+    "ethereum": ("https://ethereum-rpc.publicnode.com",),
+    "arbitrum": ("https://arb1.arbitrum.io/rpc",),
+    "polygon": ("https://polygon-bor-rpc.publicnode.com", "https://polygon-rpc.com"),
+    "avalanche": ("https://api.avax.network/ext/bc/C/rpc",),
+    "base": ("https://mainnet.base.org",),
+    "bnb": ("https://bsc-dataseed.binance.org",),
+    "optimism": ("https://mainnet.optimism.io",),
 }
 ROUTESCAN = "https://api.routescan.io/v2/network/mainnet/evm/{zincir}/etherscan/api"
 ROUTESCAN_ZINCIR = {1, 43114, 88888}
@@ -53,6 +54,7 @@ class TxOkuyucu:
         self.http = http or requests.Session()
         if db is not None:
             db.execute("CREATE TABLE IF NOT EXISTS _tx_gonderen (ag TEXT, tx TEXT, gonderen TEXT, PRIMARY KEY (ag, tx))")
+            db.execute("DELETE FROM _tx_gonderen WHERE gonderen IS NULL")      # eski hatalı sonuçlar yeniden denensin
 
     def _bellek(self, ag: str, tx: str):
         if self.db is None:
@@ -66,8 +68,8 @@ class TxOkuyucu:
             self.db.commit()
 
     def _evm(self, ag: Ag, tx: str) -> str | None:
-        if ag.anahtar in RPC:
-            url, govde = RPC[ag.anahtar], {"jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionByHash", "params": [tx]}
+        for url in RPC.get(ag.anahtar, ()):
+            govde = {"jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionByHash", "params": [tx]}
             with cagri_kaydi(self.db, "zincir", f"{ag.ad} RPC eth_getTransactionByHash", {"tx": tx}, self.oturum) as c:
                 hiz.GENEL.bekle()
                 r = self.http.post(url, json=govde, timeout=15)
@@ -76,6 +78,7 @@ class TxOkuyucu:
                 c.alanlar, c.satir = ["from"], int(bool(sonuc))
                 if not r.ok:
                     c.sonuc = "hata"
+                    continue                     # yedek RPC
                 return (sonuc or {}).get("from")
         if ag.evm_zincir in ROUTESCAN_ZINCIR:
             p = {"module": "proxy", "action": "eth_getTransactionByHash", "txhash": tx}
@@ -90,8 +93,12 @@ class TxOkuyucu:
 
     def _tron(self, tx: str) -> str | None:
         with cagri_kaydi(self.db, "zincir", "TronGrid wallet/gettransactionbyid", {"tx": tx}, self.oturum) as c:
-            hiz.GENEL.bekle()
-            r = self.http.post(f"{TRONGRID}/wallet/gettransactionbyid", data=json.dumps({"value": tx}), timeout=15)
+            for deneme in (1, 2):
+                hiz.TRONGRID.bekle()
+                r = self.http.post(f"{TRONGRID}/wallet/gettransactionbyid", data=json.dumps({"value": tx}), timeout=15)
+                if r.status_code != 429 or deneme == 2:
+                    break
+                time.sleep(2)
             c.kod = str(r.status_code)
             try:
                 sahip = r.json()["raw_data"]["contract"][0]["parameter"]["value"]["owner_address"]
@@ -112,5 +119,6 @@ class TxOkuyucu:
             g = self._tron(tx) if ag.anahtar == "tron" else (self._evm(ag, tx) if ag.evm_zincir else None)
         except (requests.RequestException, ValueError):
             g = None
-        self._sakla(ag.anahtar, tx, g)
+        if g:
+            self._sakla(ag.anahtar, tx, g)      # yalnız bulunan önbelleğe girer; hata bir sonraki sefer yeniden denenir
         return g

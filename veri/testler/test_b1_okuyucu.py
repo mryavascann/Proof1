@@ -64,9 +64,10 @@ class CagriKaydi(unittest.TestCase):
         self.assertEqual(db.execute("SELECT sonuc, kod FROM cagri").fetchone()[:], ("hata", "ValueError"))
 
     def test_maskele_tron_ve_tx(self):
-        m = maskele({"q": "TQ" + "a" * 32, "tx": "0x" + "1" * 64})
+        m = maskele({"q": "TQ" + "a" * 32, "tx": "0x" + "1" * 64, "tron_tx": "ab" * 32})
         self.assertEqual(m["q"], "TQaaaa…aaaa")
         self.assertTrue(m["tx"].startswith("0x1111…"))
+        self.assertEqual(m["tron_tx"], "ababab…abab")
 
 
 class Ayristirma(unittest.TestCase):

@@ -28,6 +28,7 @@ class Bacak:
     miktar: Decimal         # ≥ 0
     sozlesme: str | None    # yerel coin için None
     token_adi: str = ""
+    blok: int = 0           # bilinmiyorsa 0 (arşiv onarımı blok ister)
 
 
 @dataclass
@@ -39,6 +40,7 @@ class Meta:
     ucret: Decimal
     islev: str
     basarili: bool
+    blok: int = 0
 
 
 class Bacaklar(list):
@@ -48,6 +50,7 @@ class Bacaklar(list):
         super().__init__(*a)
         self.meta: dict[str, Meta] = {}
         self.kaynak = ""
+        self.onarim = None      # arşiv düğümüyle yapılan onarımın özeti (veri.zincir.onar.Onarim)
 
 
 def _d(x) -> Decimal | None:
@@ -56,6 +59,11 @@ def _d(x) -> Decimal | None:
         return d if d.is_finite() else None
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+def _blok(r) -> int:
+    b = str(r.get("blockNumber", ""))
+    return int(b) if b.isdigit() else 0
 
 
 def bacaklar(adres: str, ag: Ag, veri: dict) -> Bacaklar:
@@ -70,16 +78,18 @@ def bacaklar(adres: str, ag: Ag, veri: dict) -> Bacaklar:
         tx, kimden, kime = r["hash"].lower(), str(r.get("from", "")).lower(), str(r.get("to", "")).lower()
         basarili = str(r.get("isError", "0")) == "0" and str(r.get("txreceipt_status", "1")) != "0"
         ucret = (_d(r.get("gasUsed")) or 0) * (_d(r.get("gasPrice")) or 0) / on18 if kimden == a else Decimal(0)
-        sonuc.meta[tx] = Meta(tx, int(ts) * 1000, kimden, kime, ucret, str(r.get("functionName") or "").split("(")[0], basarili)
+        sonuc.meta[tx] = Meta(tx, int(ts) * 1000, kimden, kime, ucret, str(r.get("functionName") or "").split("(")[0], basarili,
+                              _blok(r))
         if basarili and deger > 0 and a in (kimden, kime) and kimden != kime:
-            sonuc.append(Bacak(tx, int(ts) * 1000, kimden, kime, ag.yerel, deger / on18, None))
+            sonuc.append(Bacak(tx, int(ts) * 1000, kimden, kime, ag.yerel, deger / on18, None, blok=_blok(r)))
     for r in veri.get("txlistinternal", []):
         ts, deger = str(r.get("timeStamp", "")), _d(r.get("value"))
         if not ts.isdigit() or deger is None or str(r.get("isError", "0")) != "0":
             continue
         kimden, kime = str(r.get("from", "")).lower(), str(r.get("to", "")).lower()
         if deger > 0 and a in (kimden, kime) and kimden != kime:
-            sonuc.append(Bacak(str(r.get("hash", "")).lower(), int(ts) * 1000, kimden, kime, ag.yerel, deger / on18, None))
+            sonuc.append(Bacak(str(r.get("hash", "")).lower(), int(ts) * 1000, kimden, kime, ag.yerel, deger / on18, None,
+                               blok=_blok(r)))
     for r in veri.get("tokentx", []):
         ts, deger, ond = str(r.get("timeStamp", "")), _d(r.get("value")), str(r.get("tokenDecimal", ""))
         if not ts.isdigit() or deger is None or not ond.isdigit() or not r.get("hash"):
@@ -88,7 +98,7 @@ def bacaklar(adres: str, ag: Ag, veri: dict) -> Bacaklar:
         if a in (kimden, kime) and kimden != kime:
             sonuc.append(Bacak(r["hash"].lower(), int(ts) * 1000, kimden, kime, str(r.get("tokenSymbol") or "?"),
                                deger / (Decimal(10) ** int(ond)), str(r.get("contractAddress") or "").lower(),
-                               str(r.get("tokenName") or "")))
+                               str(r.get("tokenName") or ""), _blok(r)))
     return sonuc
 
 
@@ -144,11 +154,17 @@ class GezginApi:
                 raise IOError(f"{ad}: {mesaj[:80]}")
         raise IOError(ad)
 
-    def islemler(self, adres: str, ag: Ag) -> Bacaklar:
+    def islemler(self, adres: str, ag: Ag, sayfa_boyu: int = 1000, en_cok_sayfa: int = 10) -> Bacaklar:
+        """Sayfa sayfa okur (gezginler sayfa başına en çok 1000 satır, toplam 10.000 verir)."""
         veri = {}
         for eylem in EYLEMLER:
-            veri[eylem] = self._get(ag, {"module": "account", "action": eylem, "address": adres.lower(),
-                                         "startblock": 0, "endblock": 99999999, "sort": "asc", "page": 1, "offset": 1000})
+            veri[eylem] = []
+            for sayfa in range(1, en_cok_sayfa + 1):
+                satirlar = self._get(ag, {"module": "account", "action": eylem, "address": adres.lower(), "startblock": 0,
+                                          "endblock": 99999999, "sort": "asc", "page": sayfa, "offset": sayfa_boyu})
+                veri[eylem].extend(satirlar or [])
+                if not satirlar or len(satirlar) < sayfa_boyu:
+                    break
         b = bacaklar(adres, ag, veri)
         b.kaynak = self.tur
         return b

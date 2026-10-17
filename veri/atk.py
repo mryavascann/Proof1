@@ -126,6 +126,15 @@ class Atk:
                 except (OSError, ValueError):
                     pass
 
+    def canli_mi(self) -> bool:
+        return self.surec is not None and self.surec.poll() is None
+
+    def yeniden_baslat(self) -> "Atk":
+        """Node süreci öldüyse (ya da cevap vermiyorsa) MCP sunucusunu yeniden kurar; yine --read-only."""
+        self.kapat()
+        self._kuyruk = queue.Queue()
+        return self.baslat()
+
     def __enter__(self):
         return self.baslat()
 

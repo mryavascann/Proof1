@@ -11,7 +11,11 @@ from veri.atk import Atk, satirlar
 
 GIRIS_PAYI_MS = 5_000          # bot kurulumu ile bota_giris satırı arası
 DONUS_PAYI_MS = 15_000         # durdurma ile bottan_donus satırları arası
-ESIK_TL = Decimal(1)
+ESIK = {"TRY": Decimal(1), "USDT": Decimal("0.03"), "USDC": Decimal("0.03")}   # ≈ 1 TL
+
+
+def esik(kote: str) -> Decimal:
+    return ESIK.get(kote, Decimal("0.03"))
 
 
 @dataclass
@@ -101,7 +105,7 @@ def karsilastir(bot: dict, hareketler: list[dict], fiyat, esle: bool = True) -> 
     b.gercek = min(max(b.kayit_pnl, alt), ust)        # kayda en yakın değer
     b.fark = b.kayit_pnl - b.gercek
     b.kalan_coin_degeri = sum((m * b.fiyatlar[c][1] for c, m in b.donen.items() if c != kote), Decimal(0))
-    if abs(b.fark) > ESIK_TL:
+    if abs(b.fark) > esik(kote):
         b.durum = "uyusmazlik"
         alt_deger = sum((m * b.fiyatlar[c][0] for c, m in b.donen.items() if c != kote), Decimal(0))
         pay = max(Decimal("0.5"), b.kalan_coin_degeri * Decimal("0.01"))
