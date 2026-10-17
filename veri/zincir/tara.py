@@ -27,6 +27,8 @@ class TaramaSonucu:
 def _tablo(db):
     db.execute("""CREATE TABLE IF NOT EXISTS _ag_durum (adres_id INTEGER, ag TEXT, durum TEXT, kaynak TEXT,
                   olay INTEGER, cekim_agi INTEGER, zaman TEXT, PRIMARY KEY (adres_id, ag))""")
+    db.execute("""CREATE TABLE IF NOT EXISTS _olay (adres_id INTEGER, ag TEXT, tx TEXT, ts INTEGER, tur TEXT, islev TEXT,
+                  neden TEXT, PRIMARY KEY (adres_id, ag, tx))""")
 
 
 def ag_durumlari(db) -> list[dict]:
@@ -94,6 +96,8 @@ def tara(db, okuyucu, cekimler, yatirmalar, borsa_adresleri: set | None = None) 
                                     tum[o.karsi_adres.lower()] = et
                         h = hareketlere(olaylar, r["id"], ag.anahtar, kaynak, etiketle)
                         sonuc.yeni_hareket += hyaz(db, h)
+                        db.executemany("INSERT OR REPLACE INTO _olay VALUES (?,?,?,?,?,?,?)",
+                                       [(r["id"], ag.anahtar, o.tx, o.ts, o.tur, o.islev, o.neden) for o in olaylar])
                         sonuc.supheli += sum(1 for o in olaylar if o.supheli)
                         sonuc.okunan += 1
             if durum == "okunamadi":
