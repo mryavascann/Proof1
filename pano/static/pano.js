@@ -581,6 +581,11 @@
       if (b.getAttribute("aria-disabled") === "true") duyur(b.textContent + ": bu aralık için okuma yok; tüm dönem gösteriliyor.");
     });
   });
+  // Yedek ekran kaydı için: ?kayit=1 → ekranda kalıcı "KAYIT" şeridi (canlı ile karıştırılmasın).
+  if (new URLSearchParams(location.search).get("kayit") === "1") {
+    $("kayit-serit").hidden = false;
+    document.title = "proof1 · kayıt";
+  }
   $("panel-kapat").addEventListener("click", panelKapat);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") panelKapat(); });
   if (window.ResizeObserver) {

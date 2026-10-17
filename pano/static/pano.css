@@ -177,3 +177,6 @@ tr.supheli td{color:var(--uyari)}
 .cubuk{height:8px;border-radius:4px;background:var(--yuzey2);overflow:hidden}
 .cubuk span{display:block;height:100%;background:var(--gelen)}
 @media (max-width:900px){.kanit-izgara{grid-template-columns:minmax(0,1fr)}}
+
+/* Yedek ekran kaydı: ?kayit=1 */
+.kayit-serit{background:var(--giden);color:var(--zemin);text-align:center;font-weight:600;letter-spacing:.12em;font-size:13px;padding:6px 16px}
