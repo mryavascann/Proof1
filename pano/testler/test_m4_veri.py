@@ -135,9 +135,28 @@ class Rapor(unittest.TestCase):
     def test_uyarilar_en_cok_uc(self):
         u = self.rapor()["uyarilar"]
         self.assertLessEqual(len(u["liste"]), 3)
-        self.assertEqual(u["toplam"], sorgu("SELECT count(*) FROM uyari")[0][0])
-        if sorgu("SELECT 1 FROM uyari WHERE onem='acil'"):
+        self.assertEqual(u["toplam"], sorgu("SELECT count(*) FROM uyari WHERE oturum=?", OTURUM)[0][0])
+        if sorgu("SELECT 1 FROM uyari WHERE onem='acil' AND oturum=?", OTURUM):
             self.assertEqual(u["liste"][0]["onem"], "acil")
+
+    def test_uyarilar_baska_gunu_karistirmaz_canliyi_alir(self):
+        yol = self.ayri_db()
+        with closing(sqlite3.connect(yol)) as db:
+            db.execute("INSERT INTO uyari (oturum, zaman, tur, onem, olgular) VALUES "
+                       "('sabah-2026-10-01', '2026-10-01T07:00:00Z', 'aciklanamayan', 'acil', '[]'),"
+                       "('canli-42', '2026-10-17T12:00:00Z', 'bot_uyusmazlik', 'acil', '[]'),"
+                       "('canli-41', '2026-10-10T12:00:00Z', 'bot_uyusmazlik', 'acil', '[]')")
+            db.commit()
+        u = self.rapor(db_yolu=yol)["uyarilar"]
+        self.assertEqual(u["toplam"], sorgu("SELECT count(*) FROM uyari WHERE oturum=?", OTURUM)[0][0] + 1)
+        self.assertEqual(u["liste"][0]["zaman"], "2026-10-17T12:00:00Z")
+
+    def test_kopru_try_tl_yazilir(self):
+        with closing(sqlite3.connect(":memory:")) as db:
+            db.execute("CREATE TABLE kopru (gun, kapsam, sira, kalem, tutar, varlik_tutar, aciklama, olgular)")
+            db.execute("INSERT INTO kopru VALUES ('2026-10-12','servet',1,'cekim','0','{\"TRY\": \"-1500.5\"}','x','[]')")
+            k = veri._kopru(db, OTURUM, True)
+        self.assertEqual(k["kapsamlar"]["servet"]["kalemler"][0]["varliklar"], ["−1.500,5 TL"])
 
     def test_sahiplik_sorulari(self):
         beklenen = {e for (e,) in sorgu("SELECT etiket FROM adres WHERE tahmin='benim'")}

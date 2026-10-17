@@ -82,7 +82,7 @@
     <section id="uyarilar-bolum" aria-labelledby="uyari-baslik">
       <h2 id="uyari-baslik">Uyarılar</h2>
       <ul class="uyarilar" id="uyarilar"></ul>
-      <p class="not" id="tum-uyarilar" hidden></p>
+      <a class="not baglanti" id="tum-uyarilar" href="#ayrintilar" hidden></a>
     </section>
   </div>
 
@@ -97,12 +97,14 @@
   <div class="arac">
     <div class="sekmeler buyuk" role="tablist" id="ayrinti-sekmeler">
       <button type="button" role="tab" data-sekme="hareketler" aria-selected="true">Hareketler</button>
+      <button type="button" role="tab" data-sekme="uyarilar" aria-selected="false">Uyarılar</button>
       <button type="button" role="tab" data-sekme="bot" aria-selected="false">Bot incelemesi</button>
       <button type="button" role="tab" data-sekme="kanitlar" aria-selected="false">Kanıtlar</button>
     </div>
     <span class="tazelik" id="ayrinti-durum"></span>
   </div>
   <section id="sekme-hareketler" class="sekme-govde" role="tabpanel"></section>
+  <section id="sekme-uyarilar" class="sekme-govde" role="tabpanel" hidden></section>
   <section id="sekme-bot" class="sekme-govde" role="tabpanel" hidden></section>
   <section id="sekme-kanitlar" class="sekme-govde" role="tabpanel" hidden></section>
 </main>

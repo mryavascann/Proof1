@@ -49,7 +49,7 @@ Bot kaydı tutmadığında proof1 yalnız `grid_get_order_details`, `grid_get_su
 ## Pano
 
 - **Genel Bakış:** tek akış şeması (OKX TR → Sen → ağlar), yanında doğrulanmış özet cümle; giren bant yeşil, çıkışlar kırmızı. Bir banda dokununca o paranın cümleleri, ağın okunabilen katmanları ve dönem notu açılır. Dünden bugüne köprüsü (ayrı dönem), en çok 3 uyarı, "Bu adres senin mi?".
-- **Ayrıntılar:** defter satırları ve doğrulanmış cümleler; bot incelemesi (araştırma izi); kanıtlar (OKX TR / ATK / OnchainOS / zincir çağrıları, süre, alanlar, hata, salt okunur; Fuji mühür paneli ve "Zincirde doğrula"; model bütçesi).
+- **Ayrıntılar:** defter satırları ve doğrulanmış cümleler; bu raporun bütün uyarıları (türe göre gruplu, canlı bot izleyicisininkiler dahil); bot incelemesi (araştırma izi); kanıtlar (OKX TR / ATK / OnchainOS / zincir çağrıları, süre, alanlar, hata, salt okunur; Fuji mühür paneli ve "Zincirde doğrula"; model bütçesi).
 - **Gizli mod** öntanımlı açık: bakiye seviyeleri ve yüzdeler rapora hiç girmez; giren, çıkan ve aktarım tutarları görünür.
 - Pano Buğra'nın tablolarını salt okur; yalnız `isaret` tablosuna ("benim / benim değil") yazar. Tam adres yalnız gezgin bağlantısının hedefinde.
 

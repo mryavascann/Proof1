@@ -84,6 +84,13 @@ def isleyici(db_yolu: Path):
                 return self._statik("index.html")
             if yol.startswith("/static/"):
                 return self._statik(yol[len("/static/"):])
+            try:
+                return self._api(yol, sorgu)
+            except sqlite3.Error as e:  # tablolar henüz yok (sabah işi çalışmadı) ya da dosya kilitli
+                print(f"veri okunamadı: {type(e).__name__}", file=sys.stderr)
+                return self._json(503, {"hata": "Veri kaynağı hazırlanmadı."})
+
+        def _api(self, yol: str, sorgu: dict):
             with closing(sqlite3.connect(db_yolu)) as db:
                 if yol == "/api/oturumlar":
                     return self._json(200, oturumlar(db))
