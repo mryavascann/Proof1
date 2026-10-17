@@ -120,7 +120,10 @@ def tara(db, okuyucu, cekimler, yatirmalar, borsa_adresleri: set | None = None) 
         for ag in aglar:
             cekim_agi = ag.anahtar in cekim_aglari.get(a.lower(), set())
             durum, kaynak, olay_sayisi = "okundu", "", 0
-            if not okuyucu.okuyucular(ag):
+            uygun = okuyucu.okuyucular(ag)
+            if uygun == ["onchainos"] and not cekim_agi and a.lower() not in benim:
+                continue                     # kota: OnchainOS-yalnız ağda yabancı adres taranmaz
+            if not uygun:
                 if not cekim_agi:
                     continue                 # okuyucusu olmayan, çekim de yapılmamış ağ: bilgi yok, satır yok
                 durum = "okunamadi"

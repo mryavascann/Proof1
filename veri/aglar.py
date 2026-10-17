@@ -18,14 +18,15 @@ class Ag:
         return 3 if self.okuyucu else 1
 
 
+# Okuyucu sırası: bütün geçmiş gezginden; OnchainOS (OKX, yalnız son 6 ay) yedek, gezgini olmayan BNB/Base/OP'de tek okuyucu.
 # Anahtar: OKX `chain` alanındaki ağ kısmı ("USDT-Arbitrum One" → "Arbitrum One")
 AGLAR = {
-    "ERC20": Ag("ethereum", "Ethereum", 1, "1", "https://etherscan.io/address/", "ETH", ("onchainos", "etherscan", "routescan")),
-    "Arbitrum One": Ag("arbitrum", "Arbitrum", 42161, "42161", "https://arbiscan.io/address/", "ETH", ("onchainos", "etherscan")),
-    "Polygon": Ag("polygon", "Polygon", 137, "137", "https://polygonscan.com/address/", "POL", ("onchainos", "etherscan")),
-    "Avalanche C-Chain": Ag("avalanche", "Avalanche", 43114, "43114", "https://snowtrace.io/address/", "AVAX", ("onchainos", "routescan")),
+    "ERC20": Ag("ethereum", "Ethereum", 1, "1", "https://etherscan.io/address/", "ETH", ("etherscan", "routescan", "onchainos")),
+    "Arbitrum One": Ag("arbitrum", "Arbitrum", 42161, "42161", "https://arbiscan.io/address/", "ETH", ("etherscan", "onchainos")),
+    "Polygon": Ag("polygon", "Polygon", 137, "137", "https://polygonscan.com/address/", "POL", ("etherscan", "onchainos")),
+    "Avalanche C-Chain": Ag("avalanche", "Avalanche", 43114, "43114", "https://snowtrace.io/address/", "AVAX", ("routescan", "onchainos")),
     "Chiliz Chain": Ag("chiliz", "Chiliz", 88888, None, "https://chiliscan.com/address/", "CHZ", ("routescan",)),
-    "TRC20": Ag("tron", "Tron", None, "195", "https://tronscan.org/#/address/", "TRX", ("onchainos", "trongrid")),
+    "TRC20": Ag("tron", "Tron", None, "195", "https://tronscan.org/#/address/", "TRX", ("trongrid", "onchainos")),
     "BSC": Ag("bnb", "BNB Chain", 56, "56", "https://bscscan.com/address/", "BNB", ("onchainos",)),
     "Base": Ag("base", "Base", 8453, "8453", "https://basescan.org/address/", "ETH", ("onchainos",)),
     "Optimism": Ag("optimism", "Optimism", 10, "10", "https://optimistic.etherscan.io/address/", "ETH", ("onchainos",)),

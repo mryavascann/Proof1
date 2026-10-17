@@ -26,6 +26,7 @@ class ZincirOkuyucu:
         self.db = db
         self.oturum = oturum
         self.onbellek = onbellek
+        self.onchainos_kapali = False      # ücretsiz kota dolunca bu koşu boyunca çağrılmaz (x402 ödemesi yok)
         self.arsiv = arsiv
         self.gezginler = {t: GezginApi(t, db, oturum) for t in ("etherscan", "routescan")}
         self._onchainos = None
@@ -66,7 +67,7 @@ class ZincirOkuyucu:
     def okuyucular(self, ag: Ag) -> list[str]:
         uygun = []
         for o in ag.okuyucu:
-            if o == "onchainos" and self.onchainos.hazir and ag.onchainos:
+            if o == "onchainos" and not self.onchainos_kapali and self.onchainos.hazir and ag.onchainos:
                 uygun.append(o)
             elif o in self.gezginler and self.gezginler[o].destekler(ag):
                 uygun.append(o)
@@ -101,6 +102,9 @@ class ZincirOkuyucu:
                 else:
                     b = self.gezginler[o].islemler(adres, ag)
             except (IOError, ValueError, KeyError) as e:      # sonraki okuyucuya geç
+                from veri.zincir.onchainos import KotaDoldu
+                if isinstance(e, KotaDoldu):
+                    self.onchainos_kapali = True
                 continue
             if o in self.gezginler and self.arsiv:
                 self._onar(adres, ag, b)

@@ -198,8 +198,9 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
         pencerede = bool(pencere and pencere[0] < ts <= pencere[1])
         bilgi = olay_bilgi.get((aid, tx), {})
         one_cikan = aid in benim and (hs[0]["tur"] in ("takas", "taninmadi") or "stake" in (bilgi.get("islev") or "").lower())
-        if pencerede or one_cikan or hs[0]["supheli"]:
-            secilen.append((ts, aid, tx, hs, bilgi, pencerede))
+        supheli_olay = any(h["supheli"] for h in hs) or bilgi.get("neden") in ("adres_zehirleme", "supheli_token")
+        if pencerede or one_cikan or supheli_olay:
+            secilen.append((ts, aid, tx, hs, bilgi, pencerede, supheli_olay))
     secilen.sort(key=lambda x: -x[0])                     # adres başına en yeni olaylar kalsın
     sayac: dict = {}
     tutulan = []
@@ -207,7 +208,7 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
         sayac[x[1]] = sayac.get(x[1], 0) + 1
         if sayac[x[1]] <= olay_siniri or x[5]:
             tutulan.append(x)
-    for ts, aid, tx, hs, bilgi, pencerede in sorted(tutulan, key=lambda x: x[0]):
+    for ts, aid, tx, hs, bilgi, pencerede, supheli_olay in sorted(tutulan, key=lambda x: x[0]):
         ana = [h for h in hs if h["tur"] != "ucret"]
         tur = ana[0]["tur"] if ana else "ucret"
         verilen = {h["varlik"]: -Decimal(h["miktar"]) for h in ana if Decimal(h["miktar"]) < 0}
@@ -229,8 +230,8 @@ def olgulari_kur(db, oturum: str, gun: str, kopru: dict | None = None, botlar: l
         fiyatsiz = [v for v in list(verilen) + list(alinan) if fiyat is not None and fiyat(v, ts) is None]
         if fiyatsiz:
             alanlar["dolar_fiyati_yok"] = ", ".join(fiyatsiz)
-        no = y.ekle("supheli" if hs[0]["supheli"] else tur, alanlar, kaynak=[h["id"] for h in hs])
-        if hs[0]["supheli"]:
+        no = y.ekle("supheli" if supheli_olay else tur, alanlar, kaynak=[h["id"] for h in hs])
+        if supheli_olay:
             y.uyari(bilgi.get("neden") or "supheli_token", "orta", [no])
         elif tur == "taninmadi" and pencerede:
             y.uyari("taninmadi", "bilgi", [no])

@@ -108,6 +108,25 @@ class Supheli(unittest.TestCase):
         self.assertTrue(o.supheli)
         self.assertEqual(o.tur, "taninmadi")
 
+    def test_zehirleme_uyarir_ama_yerel_coin_defterde_kalir(self):
+        from veri.zincir.cozucu import hareketlere
+        ag = AGLAR["Polygon"]
+        taklit = A[:6] + "9" * 32 + A[-4:]            # ilk/son 4 karakter tanıdık adresle aynı (42 karakter)
+        veri = {"txlist": [tx("0xz1", 1, taklit, A, 10**18)], "txlistinternal": [], "tokentx": []}
+        o = coz(A, ag, bacaklar(A, ag, veri), Baglam(benim={A}, bilinen={A}))[0]
+        self.assertEqual((o.supheli, o.neden), (True, "adres_zehirleme"))
+        h = hareketlere([o], 1, "polygon", "t")
+        self.assertEqual([(x["varlik"], x["supheli"]) for x in h], [("POL", 0)])    # gerçek coin: bakiyede var
+
+    def test_sahte_token_bacagi_supheli_yerel_bacak_degil(self):
+        from veri.zincir.cozucu import hareketlere
+        ag = AGLAR["ERC20"]
+        veri = {"txlist": [tx("0xm1", 1, YABANCI, A, 10**17)], "txlistinternal": [],
+                "tokentx": [tok("0xm1", 1, YABANCI, A, 10**6, sembol="USDT", sozlesme="0x" + "77" * 20, ad="Tether USD")]}
+        o = coz(A, ag, bacaklar(A, ag, veri), Baglam(benim={A}))[0]
+        h = {x["varlik"]: x["supheli"] for x in hareketlere([o], 1, "ethereum", "t")}
+        self.assertEqual(h, {"ETH": 0, "USDT": 1})
+
     def test_okunamayan_bacak_atlanir(self):
         ag = AGLAR["ERC20"]
         veri = {"txlist": [{"hash": "0x1", "timeStamp": "x", "from": A, "to": B, "value": "abc"}], "txlistinternal": [], "tokentx": []}

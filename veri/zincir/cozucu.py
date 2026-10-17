@@ -74,6 +74,7 @@ class Olay:
     islev: str = ""
     supheli: bool = False
     neden: str = ""                   # supheli_token | adres_zehirleme | basarisiz
+    sahte_varliklar: set = field(default_factory=set)   # yalnız bunların satırları şüpheli (servetten düşülür)
 
 
 def coz(adres: str, ag: Ag, b: Bacaklar, baglam: Baglam) -> list[Olay]:
@@ -90,15 +91,16 @@ def coz(adres: str, ag: Ag, b: Bacaklar, baglam: Baglam) -> list[Olay]:
         ts = m.ts if m else min(x.ts for x in bacaklar_)
         kullanici = bool(m and m.baslatan == a)
         net: dict[str, Decimal] = {}
-        supheli, neden = False, ""
+        supheli, neden, sahte = False, "", set()
         gonderenler, alicilar = [], []
         for x in bacaklar_:
             yon = 1 if x.kime == a else -1
             net[x.varlik] = net.get(x.varlik, Decimal(0)) + yon * x.miktar
             if yon > 0:
                 gonderenler.append(x.kimden)
-                if supheli_token_mu(x.varlik, x.token_adi, x.sozlesme, ag.anahtar):
+                if x.token_adi == "kara liste" or supheli_token_mu(x.varlik, x.token_adi, x.sozlesme, ag.anahtar):
                     supheli, neden = True, "supheli_token"
+                    sahte.add(x.varlik)
                 elif zehirleme_mi(x.kimden, baglam.bilinen):
                     supheli, neden = True, "adres_zehirleme"
             else:
@@ -106,7 +108,7 @@ def coz(adres: str, ag: Ag, b: Bacaklar, baglam: Baglam) -> list[Olay]:
         aldi = {k: v for k, v in net.items() if v > 0}
         verdi = {k: -v for k, v in net.items() if v < 0}
         o = Olay(tx, ts, "", verdi, aldi, m.ucret if m else Decimal(0), ag.yerel, islev=m.islev if m else "",
-                 supheli=supheli, neden=neden)
+                 supheli=supheli, neden=neden, sahte_varliklar=sahte)
         if m and not m.basarili:
             o.tur, o.verdi, o.aldi, o.neden = "ucret", {}, {}, "basarisiz"
         elif tx in baglam.cekim_tx:
@@ -146,12 +148,12 @@ def hareketlere(olaylar: list[Olay], adres_id: int, ag: str, kaynak: str, etiket
     for o in olaylar:
         karsi = o.karsi or (etiketle(o.karsi_adres) if (etiketle and o.karsi_adres) else None)
         ortak = {"zaman": ms_iso(o.ts), "kaynak": "zincir", "hesap": "cuzdan", "adres_id": adres_id, "ag": ag,
-                 "dolar": None, "islem_kimligi": o.tx, "karsi": karsi, "supheli": int(o.supheli), "durum": "ok",
+                 "dolar": None, "islem_kimligi": o.tx, "karsi": karsi, "supheli": 0, "durum": "ok",
                  "kaynak_okuma": kaynak}
         for varlik, m in o.aldi.items():
-            sonuc.append(dict(ortak, varlik=varlik, miktar=str(m), tur=o.tur, ham_kimlik=f"zincir:{ag}:{adres_id}:{o.tx}:{varlik}:al"))
+            sonuc.append(dict(ortak, varlik=varlik, miktar=str(m), tur=o.tur, supheli=int(varlik in o.sahte_varliklar), ham_kimlik=f"zincir:{ag}:{adres_id}:{o.tx}:{varlik}:al"))
         for varlik, m in o.verdi.items():
-            sonuc.append(dict(ortak, varlik=varlik, miktar=str(-m), tur=o.tur, ham_kimlik=f"zincir:{ag}:{adres_id}:{o.tx}:{varlik}:ver"))
+            sonuc.append(dict(ortak, varlik=varlik, miktar=str(-m), tur=o.tur, supheli=int(varlik in o.sahte_varliklar), ham_kimlik=f"zincir:{ag}:{adres_id}:{o.tx}:{varlik}:ver"))
         if o.ucret > 0:
             sonuc.append(dict(ortak, varlik=o.ucret_varlik, miktar=str(-o.ucret), tur="ucret", karsi=None,
                               ham_kimlik=f"zincir:{ag}:{adres_id}:{o.tx}:ucret"))

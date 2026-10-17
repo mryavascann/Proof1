@@ -23,7 +23,7 @@ IZINLI = frozenset({
 ALTI_AY_MS = 183 * 24 * 3600 * 1000
 
 
-class KotaDoldu(Exception):
+class KotaDoldu(IOError):        # okuyucu bunu yakalar ve OnchainOS'u o koşu boyunca kapatır
     pass
 
 
@@ -114,7 +114,7 @@ def cevir(adres: str, ag: Ag, satirlar: list[dict]) -> Bacaklar:
         kimden, kime = _adres(r.get("from")), _adres(r.get("to"))
         basarili = str(r.get("txStatus", "success")).lower() in ("success", "1")
         ucret = _d(r.get("txFee")) or Decimal(0)
-        itype = str(r.get("iType", "0"))
+        itype = str(r.get("itype", r.get("iType", "0")))      # gerçek cevapta küçük harf: itype (0 yerel, 1 iç, 2 token)
         if itype == "0" and tx not in b.meta:
             b.meta[tx] = Meta(tx, int(ts), kimden, kime, ucret if kimden == a else Decimal(0), str(r.get("methodId") or ""), basarili)
         if basarili and miktar > 0 and a in (kimden, kime) and kimden != kime:
