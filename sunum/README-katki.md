@@ -64,7 +64,7 @@ Bot kaydı tutmadığında proof1 yalnız `grid_get_order_details`, `grid_get_su
 | Kayıt işlemi | [`0x9809…c81e`](https://testnet.snowtrace.io/tx/0x980921762cbd2b01335347c5fc1b52d8d8b7e06b1897d41e41e9987d4bbdc81e) (blok 59594785) |
 | NFT | [testnet.snowtrace.io/nft/0x8004…BD9e/263](https://testnet.snowtrace.io/nft/0x8004A818BFB912233c491871b3d84c89A494BD9e/263) |
 
-Kayıt dosyası (`muhur/kayit/kayit.json`) ve görsel zincire `data:` URI olarak gömülü; `tokenURI(263)` dosyanın kendisini döndürür. Görsel geçicidir; asıl görsel gelince `setAgentURI` ile güncellenecek.
+Kayıt dosyası (`muhur/kayit/kayit.json`) ve görsel (Komiser Kuş, `muhur/kayit/gorsel.jpg`, 256 px, ~15 KB) zincire `data:` URI olarak gömülü; `tokenURI(263)` dosyanın kendisini döndürür. Görsel `setAgentURI` ile yazıldı: [`0x24c2…0987`](https://testnet.snowtrace.io/tx/0x24c25ea17641fb65d1cb1d73eac9eae66279c7dd70db1fbb935e01ee7b4a0987) (blok 59598786). Yeniden yazmak için `forge script script/Kaydol.s.sol --sig "guncelle()" --rpc-url fuji --broadcast`; ön deneme `cast estimate` ile (publicnode arşiv değil, çatal benzetimi düşer).
 
 ## Günlük mühür
 

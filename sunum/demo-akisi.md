@@ -43,4 +43,3 @@ Sunum Buğra'nın bilgisayarından. Bu dosya teknik adım listesidir; konuşma m
 - Kayıtlı yanıtlarla (`anlatim/kayit/bot_16_ekim.json`) üretilen iz "kayıt" etiketlidir; canlı değildir.
 - `grid_get_sub_orders` için kayıtlı yanıt yok; kayıt kipinde bu adım "başarısız" görünür ve iz sonraki okumayla
   devam eder. Bu, uydurulmuş bir hata değil, kayıt kipinin gerçek davranışıdır.
-- ERC-8004 kaydındaki görsel geçicidir.
