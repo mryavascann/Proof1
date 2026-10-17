@@ -106,7 +106,9 @@ python -m pano.statik                              # pano/_yayin/proof1/: örnek
 vercel deploy pano/_yayin/proof1 --prod --yes      # Vercel'e yayın
 ```
 
-Demo yalnız depodaki anonim örnek veriyi gösterir (üstte “herkese açık demo” şeridi); canlı veri, anahtar ve kişisel tam adres yayına girmez. Sunucu olmadığı için “Kendi hesabını bağla” demoda kapalıdır ve kişiyi proof1'ı kendi bilgisayarında çalıştırmaya yönlendirir. Depoyu yeni indiren biri `python -m pano.sunucu` dediğinde, canlı veri yoksa pano örnek verinin `data/ornek.db` kopyasıyla açılır.
+Demo açılışta depodaki anonim örnek veriyi gösterir (üstte “herkese açık demo” şeridi); canlı veri ve kişisel tam adres yayına girmez.
+
+**Kurulumsuz, kendi hesabın:** sitede hesap menüsünden “Kendi hesabını bağla”ya tıkla, OKX TR'de açtığın yalnız **Okuma** yetkili anahtarı yapıştır. İstekleri tarayıcın imzalar ve doğrudan `tr.okx.com`'a gönderir (OKX TR tarayıcı isteklerine izin veriyor); sunucumuz yok, anahtar hiçbir yere gitmez ve kaydedilmez, sekme kapanınca biter. Sayfa tarayıcı kuralıyla (Content-Security-Policy) yalnız `tr.okx.com`'a bağlanabilir, dış betikler bütünlük karmasıyla (SRI) yüklenir; işlem ya da çekim yetkili anahtar ilk çağrıda reddedilir. Bu hızlı görünüm çekimleri, yatırmaları, hesap değerini ve çekim günündeki dolar karşılığını okur; bot karşılaştırması, zincir taraması ve mühür tam sürümdedir (bilgisayarda `python -m pano.sunucu`). Depoyu yeni indiren biri `python -m pano.sunucu` dediğinde, canlı veri yoksa pano örnek verinin `data/ornek.db` kopyasıyla açılır.
 
 ## Örnek veri ve canlı veri
 

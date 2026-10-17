@@ -28,8 +28,18 @@ ISARET = ".proof1-yayin"                                                 # yaln�
 # Kamuya açık Fuji kimlikleri (gizli değil): ERC-8004 agentId, mühür sözleşmesi, resmi Identity sözleşmesi
 MUHUR = {"agent_id": "263", "sozlesme": "0x7C5aB869e8d972885673f19B848084279AAD0d48",
          "kimlik": "0x8004A818BFB912233c491871b3d84c89A494BD9e"}
+# Sayfa yalnız OKX TR'ye bağlanabilir: tarayıcıda yapıştırılan anahtar başka hiçbir yere gönderilemez.
+CSP = ("default-src 'self'; connect-src 'self' https://tr.okx.com; script-src 'self' https://cdn.jsdelivr.net; "
+       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; "
+       "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 VERCEL = {"headers": [{"source": "/(.*)", "headers": [{"key": "X-Content-Type-Options", "value": "nosniff"},
-                                                      {"key": "Referrer-Policy", "value": "no-referrer"}]}]}
+                                                      {"key": "Referrer-Policy", "value": "no-referrer"},
+                                                      {"key": "Content-Security-Policy", "value": CSP}]}]}
+# Zincirdeki son gerçek mühür (kamuya açık): 16 Ekim defteri, 16 satır
+SON_MUHUR = {"gun": "2026-10-16", "kok": "0x2f3a83122d7f35c83da99d125dcc25092218a0f2b825cba50b8c1b1bce6b8f22",
+             "onceki_kok": None, "islem": "0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34",
+             "agent_id": "263", "sozlesme": MUHUR["sozlesme"], "zaman": None,
+             "gezgin": "https://testnet.snowtrace.io/tx/0x5135feef5860b1689908ab2f56def30363fb22ca424ca8f0b109177e91b2ef34"}
 
 
 def _yaz(yol: Path, nesne) -> None:
@@ -58,8 +68,9 @@ def uret(hedef: Path = HEDEF) -> Path:
         with closing(sqlite3.connect(db_yolu)) as db:
             for g in ("1", "0"):
                 _yaz(hedef / "veri" / f"rapor-{g}.json", veri.rapor(db, oturum, gizli=g == "1"))
-                _yaz(hedef / "veri" / f"ayrinti-{g}.json",
-                     veri.ayrinti(db, oturum, gizli=g == "1", muhur_ayar=MUHUR, kullanici="ornek"))
+                a = veri.ayrinti(db, oturum, gizli=g == "1", muhur_ayar=MUHUR, kullanici="ornek")
+                a["muhur"]["son"] = a["muhur"]["son"] or [SON_MUHUR]
+                _yaz(hedef / "veri" / f"ayrinti-{g}.json", a)
     _yaz(hedef / "veri" / "hesaplar.json", [{"hesap": "ana", "ad": "Örnek hesap"}])
     _yaz(hedef / "vercel.json", VERCEL)
     return hedef

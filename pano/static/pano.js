@@ -12,7 +12,7 @@
   var durum = {
     rapor: null, ayrinti: null, gizli: true, secili: null, dar: null, ilk: true, kopruKapsam: "servet", ertelenen: {},
     oturum: ilkSorgu.get("oturum"), hesap: ilkSorgu.get("hesap"), bantlar: [], geo: null, sekme: "ozet",
-    hesaplar: [], tarama: null, split: null
+    hesaplar: [], tarama: null, split: null, tarayici: null, tarayiciAktif: false
   };
   if (G && !HAREKETSIZ) {
     document.body.classList.add("bekle");
@@ -78,7 +78,9 @@
     return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + x[3];
   }
   function eksi(m) { return String(m == null ? "" : m).replace(/^-/, "−"); }
-  function cumleEtiketi(c) { return c.denetim === "gecti" ? "sayılar olgularla doğrulandı" : "doğrulanmış kalıp cümle"; }
+  function cumleEtiketi(c) {
+    return c.denetim === "gecti" ? "sayılar olgularla doğrulandı" : c.denetim === "kod" ? "kod hesapladı" : "doğrulanmış kalıp cümle";
+  }
   function f(x) { return Math.round(x * 10) / 10; }
 
   // Her istek seçili hesabı taşır (kendi hesabını bağlayan kişinin panosu ayrı veritabanından okunur).
@@ -97,6 +99,10 @@
 
   function statikVeri(yol, params, secenek) {
     var g = params && params.gizli === "0" ? "0" : "1";
+    if (durum.tarayiciAktif && durum.tarayici) {           // kendi hesabı: yalnız bu sekmenin belleğinde
+      var t = durum.tarayici, nesne = { "/api/rapor": g === "1" ? t.rapor1 : t.rapor0, "/api/ayrinti": g === "1" ? t.ayrinti1 : t.ayrinti0 }[yol];
+      return nesne && !(secenek && secenek.method) ? Promise.resolve(nesne) : Promise.reject(new Error("Demoda yok."));
+    }
     var dosya = { "/api/rapor": "rapor-" + g, "/api/ayrinti": "ayrinti-" + g }[yol];
     if (!dosya || (secenek && secenek.method)) return Promise.reject(new Error("Demoda yok."));
     return fetch("/veri/" + dosya + ".json", { cache: "no-store" }).then(function (y) {
@@ -480,6 +486,12 @@
   function kartlar() {
     var r = durum.rapor, u = r.uyarilar, k = $("kartlar"), liste = [];
     k.innerHTML = "";
+    if (r.kartlar) {
+      r.kartlar.forEach(function (x) {
+        k.appendChild(kart(x.ton, x.ust, x.buyuk ? [el("span", { metin: x.buyuk })] : null, x.buyuk ? x.alt : x.metin, x.sekme, !x.buyuk));
+      });
+      return;
+    }
     var bot = u.liste.filter(function (x) { return x.tur === "bot_uyusmazlik" && x.kayit; })[0];
     if (bot) {
       liste.push(kart("acil", bot.baslik + (u.acil > 1 ? " · " + u.acil : ""),
@@ -634,8 +646,15 @@
     if (!r) return;
     var iz = el("div", { sinif: "izgara" });
     var b1 = el("div", { sinif: "blok" });
-    b1.appendChild(el("h3", { metin: "Dün 09.00 → bugün 09.00" }));
-    kopruCiz(b1);
+    if (r.tarayici) {
+      var bk = borsaBakiyesi();
+      b1.appendChild(el("h3", { metin: "Hesap" }));
+      b1.appendChild(el("p", { sinif: "olcu" }, [el("b", { metin: bk || "gizli" }), bk ? "OKX TR hesap değeri, şimdi" : "Gizli mod: bakiye gösterilmez"]));
+      b1.appendChild(el("p", { sinif: "not", metin: "Dünle karşılaştırma (köprü) bilgisayardaki proof1'da yapılır." }));
+    } else {
+      b1.appendChild(el("h3", { metin: "Dün 09.00 → bugün 09.00" }));
+      kopruCiz(b1);
+    }
     iz.appendChild(b1);
     var b2 = el("div", { sinif: "blok" });
     b2.appendChild(el("h3", { metin: "Akış · " + (r.akis.donem || "") }));
@@ -748,6 +767,7 @@
   function botCiz(a) {
     var k = $("sekme-bot"), b = a.bot;
     k.innerHTML = "";
+    if (b.yok) { k.appendChild(el("p", { sinif: "not", metin: "Bot karşılaştırması bilgisayardaki proof1'da yapılır; bu hızlı görünüm yalnız çekim, yatırma ve hesap değerini okur." })); return; }
     if (!b.olgu) { k.appendChild(el("p", { sinif: "not", metin: "Bu raporda bot kaydıyla hesap arasında uyuşmazlık yok." })); return; }
     var o = b.olgu;
     k.appendChild(el("h2", { metin: o.bot + " botu" }));
@@ -850,7 +870,7 @@
     }
     b2.appendChild(dl);
     b2.appendChild(dogru);
-    if (gosterilen) {
+    if (gosterilen && !STATIK) {
       var dg = el("button", { type: "button", sinif: "baglanti", metin: "Zincirde doğrula" });
       var METIN = { dogrulandi: "Doğrulandı: zincirdeki kök yerel kayıtla aynı.", uyusmuyor: "Uyuşmuyor: zincirdeki kök farklı.",
         zincirde_yok: "Zincirde bu gün için kök yok.", baglanilamadi: "Zincire bağlanılamadı.",
@@ -865,6 +885,7 @@
     b2.appendChild(el("p", { sinif: "not", metin: mu.not }));
     iz.appendChild(b2);
 
+    if (!bu) { k.appendChild(iz); return; }
     var b3 = el("div", { sinif: "blok" });
     b3.appendChild(el("h3", { metin: "Anlatıcı bütçesi · " + bu.ay }));
     b3.appendChild(el("p", { sinif: "olcu" }, [el("b", { metin: bu.harcanan }), "/ " + bu.tavan]));
@@ -882,7 +903,13 @@
 
   /* ---------- hesaplar: herkes kendi hesabını görür ---------- */
   function hesaplariYukle() {
-    return fetch(STATIK ? "/veri/hesaplar.json" : "/api/hesaplar", { cache: "no-store" }).then(function (y) { return y.ok ? y.json() : []; }).catch(function () { return []; })
+    if (STATIK) {
+      durum.hesaplar = [{ hesap: "ana", ad: "Örnek hesap" }].concat(durum.tarayici ? [{ hesap: "tarayici", ad: "Hesabım" }] : []);
+      $("hesap-ad").textContent = durum.tarayiciAktif ? "Hesabım" : "Örnek hesap";
+      menuCiz();
+      return Promise.resolve();
+    }
+    return fetch("/api/hesaplar", { cache: "no-store" }).then(function (y) { return y.ok ? y.json() : []; }).catch(function () { return []; })
       .then(function (liste) {
         durum.hesaplar = Array.isArray(liste) && liste.length ? liste : [{ hesap: "ana", ad: "Ana hesap" }];
         var secili = durum.hesaplar.filter(function (h) { return h.hesap === (durum.hesap || "ana"); })[0];
@@ -894,7 +921,8 @@
     var m = $("hesap-menu");
     m.innerHTML = "";
     durum.hesaplar.forEach(function (h) {
-      var b = el("button", { type: "button", role: "menuitemradio", "aria-checked": String(h.hesap === (durum.hesap || "ana")) }, [h.ad]);
+      var secili = STATIK ? (h.hesap === "tarayici") === durum.tarayiciAktif : h.hesap === (durum.hesap || "ana");
+      var b = el("button", { type: "button", role: "menuitemradio", "aria-checked": String(secili) }, [h.ad]);
       b.addEventListener("click", function () { menuKapat(); hesabaGec(h.hesap === "ana" ? null : h.hesap); });
       m.appendChild(b);
     });
@@ -909,33 +937,58 @@
   }
   function menuKapat() { $("hesap-menu").hidden = true; $("hesap-dugme").setAttribute("aria-expanded", "false"); }
   function hesabaGec(hesap) {
+    if (STATIK) {
+      durum.tarayiciAktif = hesap === "tarayici";
+      $("kayit-serit").textContent = durum.tarayiciAktif ? "SENİN HESABIN · bu sekmede okundu, hiçbir yere kaydedilmedi" : "HERKESE AÇIK DEMO · anonim örnek veri";
+      hesap = null;
+    }
     durum.hesap = hesap; durum.oturum = null; durum.rapor = null; durum.ayrinti = null; durum.secili = null;
     $("panel").hidden = true;
-    var q = new URLSearchParams(location.search);
-    q.delete("oturum");
-    if (hesap) q.set("hesap", hesap); else q.delete("hesap");
-    history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q.toString() : ""));
+    if (!STATIK) {
+      var q = new URLSearchParams(location.search);
+      q.delete("oturum");
+      if (hesap) q.set("hesap", hesap); else q.delete("hesap");
+      history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q.toString() : ""));
+    }
     hesaplariYukle();
     if (!$("detay").hidden) kip(false);
     yukle(true);
   }
 
   var ADIMLAR = ["Anahtar denetleniyor", "Borsa okunuyor", "Zincirler taranıyor", "Dolar karşılıkları", "Botlar ve köprü", "Hazır"];
+  var ADIMLAR_TARAYICI = ["Anahtar denetleniyor", "Çekimler ve yatırmalar okunuyor", "Dolar karşılıkları", "Akış çiziliyor", "Hazır"];
   function baglaAc() {
     $("bagla-perde").hidden = false;
-    if (STATIK) { $("bagla-form").hidden = true; $("bagla-ilerleme").hidden = true; $("bagla-demo").hidden = false; return; }
+    $("bagla-demo").hidden = !STATIK;
+    $("guven-yerel").hidden = STATIK;
+    $("guven-statik").hidden = !STATIK;
     $("bagla-form").hidden = !!durum.tarama;
     $("bagla-ilerleme").hidden = !durum.tarama;
     if (!durum.tarama) setTimeout(function () { $("bagla-form").elements.api_key.focus(); }, 60);
   }
   function baglaKapat() { $("bagla-perde").hidden = true; $("hesap-dugme").focus(); }
-  function ilerlemeCiz(sira, bitti) {
+  function ilerlemeCiz(sira, bitti, adimlar, ek) {
     var ol = $("ilerleme-adimlar");
     ol.innerHTML = "";
-    ADIMLAR.forEach(function (ad, i) {
+    (adimlar || ADIMLAR).forEach(function (ad, i) {
       var n = i + 1, sinif = bitti || n < sira ? "bitti" : n === sira ? "simdi" : "";
-      ol.appendChild(el("li", { sinif: sinif }, [el("span", { sinif: "durum-i", "aria-hidden": "true" }), ad]));
+      ol.appendChild(el("li", { sinif: sinif }, [el("span", { sinif: "durum-i", "aria-hidden": "true" }), ad + (n === sira && ek ? " · " + ek : "")]));
     });
+  }
+  // Herkese açık sayfada: istekleri tarayıcı imzalar, doğrudan tr.okx.com'a gider (tarayici.js). Sunucu yok.
+  function tarayicidaTara(kimlik) {
+    taramaDurumu("tarayici");
+    $("bagla-form").hidden = true; $("bagla-ilerleme").hidden = false;
+    ilerlemeCiz(1, false, ADIMLAR_TARAYICI);
+    var muhur = durum.ayrinti && durum.ayrinti.muhur;
+    window.Proof1Tarayici.tara(kimlik, function (sira, ek) { ilerlemeCiz(sira, false, ADIMLAR_TARAYICI, ek); }, { muhur: muhur })
+      .then(function (sonuc) {
+        durum.tarayici = sonuc;
+        taramaDurumu(null);
+        ilerlemeCiz(5, true, ADIMLAR_TARAYICI);
+        setTimeout(function () { baglaKapat(); hesabaGec("tarayici"); duyur("Hesabın okundu; akışın çizildi."); }, 600);
+      })
+      .catch(function (e) { taramaHatasi((e && e.message) || "Okunamadı."); });
   }
   function taramaDurumu(hesap) {
     durum.tarama = hesap;
@@ -971,8 +1024,10 @@
     var govde = JSON.stringify({ api_key: form.elements.api_key.value.trim(), secret_key: form.elements.secret_key.value.trim(),
       passphrase: form.elements.passphrase.value.trim() });
     var eksik = !form.elements.api_key.value.trim() || !form.elements.secret_key.value.trim() || !form.elements.passphrase.value.trim();
+    var kimlik = STATIK ? JSON.parse(govde) : null;
     form.reset();                          // anahtar formda ve ekranda kalmaz; tarayıcıda hiçbir yere yazılmaz
-    if (eksik) { govde = null; hata.textContent = "Üç alan da gerekli."; hata.hidden = false; return; }
+    if (eksik) { govde = kimlik = null; hata.textContent = "Üç alan da gerekli."; hata.hidden = false; return; }
+    if (STATIK) { govde = null; hata.hidden = true; tarayicidaTara(kimlik); kimlik = null; return; }
     hata.hidden = true;
     dugme.disabled = true;
     fetch("/api/hesap/bagla", { method: "POST", headers: { "content-type": "application/json" }, body: govde })

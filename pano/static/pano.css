@@ -96,7 +96,8 @@ body.taraniyor .hesap-nokta { background: var(--altin); box-shadow: 0 0 12px var
 }
 
 .kayit-serit.demo { background: var(--altin); color: #1b1309; }
-.bagla-demo p { margin: 0 0 14px; color: var(--soluk); }
+.bagla-demo { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--cizgi); }
+.bagla-demo p { margin: 0 0 14px; color: var(--soluk); font-size: 13.5px; }
 .bagla-demo pre { margin: 0 0 18px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--cizgi-2); background: rgba(0, 0, 0, .35); overflow-x: auto; }
 .bagla-demo code { font: 13px/1.7 var(--mono); color: var(--altin-acik); }
 .bagla-demo .birincil { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 999px; }
@@ -182,6 +183,10 @@ body.veri-yok .lejant { display: none; }
 .kart.orta { --ton: var(--turuncu); }
 .kart.bilgi { --ton: var(--soluk); }
 .kart.tamam { --ton: var(--yesil); }
+.kart.giris { --ton: var(--altin); }
+.kart.giris .kart-buyuk { color: var(--altin-acik); }
+.kart.cikis { --ton: var(--cikis); }
+.kart.cikis .kart-buyuk { color: var(--cikis-acik); }
 .kart-ust { display: flex; align-items: center; gap: 8px; font: 600 condensed 11.5px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ton); }
 .kart-buyuk { display: flex; align-items: center; gap: 10px; font: 300 clamp(24px, 2.3vw, 30px)/1.1 var(--serif); letter-spacing: -.02em; white-space: nowrap; }
 .kart-buyuk .i { width: 20px; height: 20px; color: var(--sonuk); }

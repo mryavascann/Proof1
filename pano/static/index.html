@@ -101,12 +101,13 @@
       <label>API anahtarı<input name="api_key" type="password" autocomplete="off" spellcheck="false" required></label>
       <label>Gizli anahtar<input name="secret_key" type="password" autocomplete="off" spellcheck="false" required></label>
       <label>Parola<input name="passphrase" type="password" autocomplete="off" spellcheck="false" required></label>
-      <p class="guven"><svg class="i kucuk" aria-hidden="true"><use href="#i-kilit"/></svg>Anahtar bu bilgisayardan çıkmaz, diske yazılmaz. İşlem ya da çekim yetkisi olan anahtar reddedilir.</p>
+      <p class="guven" id="guven-yerel"><svg class="i kucuk" aria-hidden="true"><use href="#i-kilit"/></svg>Anahtar bu bilgisayardan çıkmaz, diske yazılmaz. İşlem ya da çekim yetkisi olan anahtar reddedilir.</p>
+      <p class="guven" id="guven-statik" hidden><svg class="i kucuk" aria-hidden="true"><use href="#i-kilit"/></svg>Anahtar bu sekmeden çıkmaz: istekleri tarayıcın imzalar ve doğrudan OKX TR'ye gönderir. Sunucumuz yok, hiçbir yere kaydedilmez. İşlem ya da çekim yetkisi olan anahtar reddedilir.</p>
       <p class="hata" id="bagla-hata" role="alert" hidden></p>
       <button type="submit" class="birincil">Tara</button>
     </form>
     <div class="bagla-demo" id="bagla-demo" hidden>
-      <p>Bu herkese açık demo, anonim örnek veriyle çalışır. Kendi hesabını görmek için proof1'ı kendi bilgisayarında çalıştır: anahtarın hiçbir sunucuya gitmez.</p>
+      <p>Bot karşılaştırması, zincir taraması ve mühür için tam sürümü kendi bilgisayarında çalıştır:</p>
       <pre><code>git clone https://github.com/mryavascann/Proof1
 cd Proof1
 python -m pano.sunucu</code></pre>
@@ -133,8 +134,9 @@ python -m pano.sunucu</code></pre>
   <symbol id="i-arti" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-muhur" viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
 </svg>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js" integrity="sha384-XmJ9SoHtVOHoQUcKvFAzVXwdkKo1Ie3bhmSoIAkcdsHGaIrVJIkmozyq0FJeb/Ly" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js" integrity="sha384-SWJ0lLVRoipvHh59xj0pL7uC7Ih51F+5smaFtrG+2nr+TlDZU5SYJHmxfolbeNTr" crossorigin="anonymous"></script>
+<script src="/static/tarayici.js"></script>
 <script src="/static/pano.js"></script>
 </body>
 </html>
