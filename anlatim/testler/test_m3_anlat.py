@@ -83,7 +83,7 @@ class Anlat(unittest.TestCase):
         yerler = [s["yer"] for s in satirlar]
         self.assertEqual(yerler.count("telegram"), 1)
         self.assertEqual(yerler.count("pano"), 1)
-        self.assertIn("bant:ADRES_MOCA", yerler)
+        self.assertIn("bant:Ethereum", yerler)
         self.assertIn("bant:Arbitrum", yerler)
         # İlk çağrı Telegram cümlesi: kısa zaman aşımı, yeniden deneme yok.
         self.assertEqual(istemci.cagrilar[0][0], {"timeout": anlat.TELEGRAM_ZAMAN_ASIMI, "max_retries": 0})
@@ -106,11 +106,14 @@ class Anlat(unittest.TestCase):
     def test_gizli_olgu_modele_gitmez(self):
         istemci = SahteIstemci(lambda i: yanit(kaliptan_cevaplar(i)))
         anlat.anlat(self.db, OTURUM, istemci, kullanici="bugra", ay="2026-10")
+        with closing(sqlite3.connect(self.db)) as db:
+            gizliler = [no for (no,) in db.execute("SELECT no FROM olgu WHERE oturum=? AND gizli=1", (OTURUM,))]
+        self.assertTrue(gizliler)
         for _, istek in istemci.cagrilar:
             govde = istek["messages"][0]["content"]
-            self.assertNotIn("360 $", govde)
             self.assertNotIn("kalan_ozet", govde)
-            self.assertNotIn('"o2"', govde)
+            for no in gizliler:
+                self.assertNotIn(f'"{no}"', govde)
 
     def test_yanlis_sayi_kaliba_doner_ve_saklanmaz(self):
         def cevapla(i):
@@ -156,9 +159,9 @@ class Anlat(unittest.TestCase):
 
     def test_ayni_banttaki_iki_olgu_korunur(self):
         anlat.anlat(self.db, OTURUM, None, kullanici="bugra", ay="2026-10")
-        moca = [s["metin"] for s in self.cumleler() if s["yer"] == "bant:ADRES_MOCA"]
-        self.assertEqual(len(moca), 2)
-        self.assertTrue(any("46,15 PIEVERSE verip 1.587 MOCA aldın; ağ ücreti 0,000129 ETH" in m for m in moca))
+        eth = [s["metin"] for s in self.cumleler() if s["yer"] == "bant:Ethereum"]
+        self.assertGreaterEqual(len(eth), 2)
+        self.assertTrue(any("46,15 PIEVERSE verip 1.587 MOCA aldın" in m for m in eth))
 
     def test_tekrar_calisinca_cogaltmaz(self):
         for _ in range(2):

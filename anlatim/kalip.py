@@ -16,7 +16,9 @@ def _takas(a: dict) -> str:
     if a.get("ag_ucreti"):
         metin += f"; ağ ücreti {a['ag_ucreti']}"
     metin += "."
-    if a.get("verilen_dolar") == "bilinmiyor":
+    if a.get("dolar_fiyati_yok"):
+        metin += f" {a['dolar_fiyati_yok']} için o güne ait dolar fiyatı yok."
+    elif a.get("verilen_dolar") == "bilinmiyor":
         metin += " Verdiğin token için o güne ait dolar fiyatı yok."
     return metin
 

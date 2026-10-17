@@ -260,7 +260,7 @@ def rapor(db: sqlite3.Connection, oturum: str, gizli: bool = True) -> dict:
     }
     if not gizli:
         k = next((o for o in olgular if o.tur == "kalan_ozet"), None)
-        if k:
+        if k and sayilari_ayikla(str(k.alanlar.get("dolar", ""))):  # değer yoksa (ör. "gizli") cümle kurulmaz
             sonuc["kalan"] = {"metin": f"{k.alanlar.get('adres_sayisi')} adreste yaklaşık {k.alanlar.get('dolar')} "
                                        f"duruyor.",
                               "not": "Güncel bakiye seviyesi; tarihsel akıştan ayrı zaman damgasıyla okunur.",

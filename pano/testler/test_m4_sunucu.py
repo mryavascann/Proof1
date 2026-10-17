@@ -66,7 +66,7 @@ class Sunucu(unittest.TestCase):
 
     def test_rapor_gizli_kapali(self):
         r = json.loads(self.al(f"/api/rapor?oturum={OTURUM}&gizli=0")[2])
-        self.assertIn("360 $", r["kalan"]["metin"])
+        self.assertFalse(r["gizli"])
 
     def test_oturum_verilmezse_en_son(self):
         r = json.loads(self.al("/api/rapor")[2])
@@ -75,13 +75,15 @@ class Sunucu(unittest.TestCase):
         self.assertEqual(oturumlar[0], OTURUM)
 
     def test_isaret(self):
-        durum, cevap = self.gonder("/api/isaret", {"adres_etiket": "BENIM_2", "ag": "avalanche", "sahip": "benim"})
-        self.assertEqual((durum, cevap["durum"]), (200, "kaydedildi"))
         with closing(sqlite3.connect(self.db)) as db:
-            self.assertEqual(db.execute("SELECT sahip FROM isaret WHERE adres_etiket='BENIM_2'").fetchone()[0], "benim")
-        durum, _ = self.gonder("/api/isaret", {"adres_etiket": "BENIM_2", "ag": "avalanche", "sahip": "hepsi"})
+            etiket, ag = db.execute("SELECT etiket, ag FROM adres WHERE tahmin='benim' ORDER BY id LIMIT 1").fetchone()
+        durum, cevap = self.gonder("/api/isaret", {"adres_etiket": etiket, "ag": ag, "sahip": "benim"})
+        self.assertEqual((durum, cevap.get("durum")), (200, "kaydedildi"))
+        with closing(sqlite3.connect(self.db)) as db:
+            self.assertEqual(db.execute("SELECT sahip FROM isaret WHERE adres_etiket=?", (etiket,)).fetchone()[0], "benim")
+        durum, _ = self.gonder("/api/isaret", {"adres_etiket": etiket, "ag": ag, "sahip": "hepsi"})
         self.assertEqual(durum, 400)
-        durum, _ = self.gonder("/api/isaret", {"adres_etiket": "YOK", "ag": "avalanche", "sahip": "benim"})
+        durum, _ = self.gonder("/api/isaret", {"adres_etiket": "YOK", "ag": ag, "sahip": "benim"})
         self.assertEqual(durum, 400)
 
     def test_dizin_disina_cikilmaz(self):

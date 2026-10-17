@@ -81,7 +81,8 @@ def gorevler(olgular: list[Olgu]) -> list[dict]:
     for o in olgular:
         if o.gizli or o.tur in OZET_TURLERI or o.tur not in kalip.KALIPLAR:
             continue
-        etiket = o.alanlar.get("adres") or o.alanlar.get("ag") or o.alanlar.get("bot") or o.no
+        # Bant, olgunun kendi ağıdır: aynı adres birden çok EVM ağında kullanılabilir.
+        etiket = o.alanlar.get("ag") or o.alanlar.get("adres") or o.alanlar.get("bot") or o.no
         liste.append({"id": f"bant-{o.no}", "yer": f"bant:{etiket}", "cumle_sayisi": 1, "olgular": [o.no]})
     return liste
 
