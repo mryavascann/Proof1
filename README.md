@@ -6,7 +6,7 @@
 
 **Canlı demo:** https://proof1-ivory.vercel.app · **Sunum (hareketli):** https://proof1-ivory.vercel.app/sunum/ · **Avalanche (Fuji C-Chain):** [`0x7C5aB869e8d972885673f19B848084279AAD0d48`](https://testnet.snowtrace.io/address/0x7C5aB869e8d972885673f19B848084279AAD0d48) · ERC-8004 agentId **263**
 
-Agentic Hackathon Ankara · 17 Ekim 2026 · Buğra & Merve
+Agentic Hackathon Ankara · 17 Ekim 2026 · [Buğra](https://github.com/mryavascann) & [Merve](https://github.com/mrvipek259-ui)
 
 > Sunumdaki hareketler tarayıcıda çalışır: bağlantıyı aç, **F** ile tam ekran, **→** ya da boşlukla ilerle. Google Slaytlar'a aktarılan kopya aynı görünür ama hareketsizdir.
 
@@ -145,5 +145,7 @@ Bot sahnede insan tarafından durdurulur; proof1 bot kurmaz, durdurmaz.
 ---
 
 ### In English
+
+Built by [Buğra](https://github.com/mryavascann) and [Merve](https://github.com/mrvipek259-ui) at Agentic Hackathon Ankara (17 October 2026).
 
 proof1 is a read-only AI agent for OKX TR users. It follows withdrawals on-chain and reconciles the ledger. It shows where the money went in one animated flow, and it catches trading-bot records that disagree with the money actually returned (+99.89 TL reported vs −0.22 TL real). Every day it seals the ledger's Merkle root on Avalanche Fuji (Proof1Muhur `0x7C5aB869e8d972885673f19B848084279AAD0d48`, ERC-8004 agentId 263). It uses OKX Agent Trade Kit in read-only mode and OKX OnchainOS. Try it without installing anything at https://proof1-ivory.vercel.app: your browser signs the requests and talks to OKX TR directly, so the key never reaches a server.
